@@ -8,7 +8,7 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('UMS API')
-    .setDescription('API documentation for the User Management System')
+    .setDescription('API documentation for the AI Powered User Management System')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
