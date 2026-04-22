@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { AcademicModule } from './academic/academic.module';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { GlobalExceptionFilter } from './common/filters/http-execption.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -13,6 +14,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     PrismaModule,
     AuthModule,
     UsersModule,
+    AcademicModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
