@@ -1,0 +1,167 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { Role } from '../common/types';
+
+@Injectable()
+export class UsersService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ─── GET OWN PROFILE ─────────────────────────────────────────────────────────
+  async getMyProfile(userId: string, role: Role) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        // Include whichever profile exists
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            regNo: true,
+            batch: true,
+            phone: true,
+            address: true,
+            dateOfBirth: true,
+            createdAt: true,
+          },
+        },
+        faculty: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            empId: true,
+            designation: true,
+            phone: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const profile = role === Role.STUDENT ? user.student : user.faculty;
+
+    return {
+      message: 'Profile fetched successfully',
+      data: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        profile,
+      },
+    };
+  }
+
+  // ─── GET STUDENT PROFILE BY ID (Admin / Faculty use) ─────────────────────────
+  async getStudentById(studentId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        user: { select: { email: true, isActive: true, createdAt: true } },
+      },
+    });
+
+    if (!student) throw new NotFoundException('Student not found');
+
+    return { message: 'Student profile fetched', data: student };
+  }
+
+  // ─── GET FACULTY PROFILE BY ID (Admin use) ────────────────────────────────────
+  async getFacultyById(facultyId: string) {
+    const faculty = await this.prisma.faculty.findUnique({
+      where: { id: facultyId },
+      include: {
+        user: { select: { email: true, isActive: true, createdAt: true } },
+      },
+    });
+
+    if (!faculty) throw new NotFoundException('Faculty not found');
+
+    return { message: 'Faculty profile fetched', data: faculty };
+  }
+
+  // ─── LIST ALL STUDENTS (Admin / Faculty use) ──────────────────────────────────
+  async getAllStudents(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [students, total] = await this.prisma.$transaction([
+      this.prisma.student.findMany({
+        skip,
+        take: limit,
+        include: {
+          user: { select: { email: true, isActive: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.student.count(),
+    ]);
+
+    return {
+      message: 'Students fetched',
+      data: {
+        students,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    };
+  }
+
+  // ─── LIST ALL FACULTY (Admin use) ─────────────────────────────────────────────
+  async getAllFaculty(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [faculty, total] = await this.prisma.$transaction([
+      this.prisma.faculty.findMany({
+        skip,
+        take: limit,
+        include: {
+          user: { select: { email: true, isActive: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.faculty.count(),
+    ]);
+
+    return {
+      message: 'Faculty fetched',
+      data: {
+        faculty,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    };
+  }
+
+  // ─── DEACTIVATE USER (Admin use) ──────────────────────────────────────────────
+  async deactivateUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false },
+    });
+
+    // Revoke all sessions
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+
+    return { message: 'User deactivated successfully', data: null };
+  }
+}
