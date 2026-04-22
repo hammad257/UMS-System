@@ -50,6 +50,7 @@ model Student {
   dateOfBirth DateTime? @map("date_of_birth")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+  enrollments Enrollment[]
 
   // Relations
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -158,6 +159,7 @@ model Section {
   maxSeats   Int       @default(40) @map("max_seats")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
+  enrollments Enrollment[]
 
   course     Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   faculty    Faculty   @relation(fields: [facultyId], references: [id], onDelete: Restrict)
@@ -165,4 +167,25 @@ model Section {
 
   @@unique([courseId, name, semesterId])
   @@map("sections")
+}
+
+model Enrollment {
+  id         String   @id @default(uuid())
+  studentId  String   @map("student_id")
+  sectionId  String   @map("section_id")
+  status     EnrollmentStatus @default(ENROLLED)
+  enrolledAt DateTime @default(now()) @map("enrolled_at")
+
+  // Relations
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, sectionId]) // prevent duplicate enrollment
+  @@map("enrollments")
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  DROPPED
+  COMPLETED
 }
