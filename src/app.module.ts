@@ -7,6 +7,7 @@ import { AcademicModule } from './academic/academic.module';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { GlobalExceptionFilter } from './common/filters/http-execption.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { EnrollmentModule } from './enrollment/enrollment.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     AuthModule,
     UsersModule,
     AcademicModule,
+    EnrollmentModule
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
