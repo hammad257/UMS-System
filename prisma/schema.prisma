@@ -30,6 +30,7 @@ model User {
   // 1:1 profile relations
   student       Student?
   faculty       Faculty?
+  leaveRequests LeaveRequest[]
 
   // 1:M token relation
   refreshTokens RefreshToken[]
@@ -38,43 +39,43 @@ model User {
 }
 
 model Student {
-  id          String    @id @default(uuid())
-  userId      String    @unique @map("user_id")
-  programId   String?   @map("program_id")
-  firstName   String    @map("first_name")
-  lastName    String    @map("last_name")
-  regNo       String    @unique @map("reg_no")
+  id          String       @id @default(uuid())
+  userId      String       @unique @map("user_id")
+  programId   String?      @map("program_id")
+  firstName   String       @map("first_name")
+  lastName    String       @map("last_name")
+  regNo       String       @unique @map("reg_no")
   batch       String
   phone       String?
   address     String?
-  dateOfBirth DateTime? @map("date_of_birth")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  dateOfBirth DateTime?    @map("date_of_birth")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
   enrollments Enrollment[]
 
   // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  program     Program?  @relation(fields: [programId], references: [id], onDelete: SetNull)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
 
   @@map("students")
 }
 
 model Faculty {
-  id          String   @id @default(uuid())
-  userId      String   @unique @map("user_id")
-  departmentId String? @map("department_id")
-  firstName   String   @map("first_name")
-  lastName    String   @map("last_name")
-  empId       String   @unique @map("emp_id")
-  designation String
-  phone       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  departmentId String?  @map("department_id")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  empId        String   @unique @map("emp_id")
+  designation  String
+  phone        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  department  Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  sections    Section[]
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  sections   Section[]
 
   @@map("faculty")
 }
@@ -87,98 +88,102 @@ model RefreshToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
 }
 
 model Department {
-  id        String    @id @default(uuid())
-  name      String    @unique
-  code      String    @unique
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  programs  Program[]
-  courses   Course[]
-  faculty   Faculty[]
+  programs Program[]
+  courses  Course[]
+  faculty  Faculty[]
 
   @@map("departments")
 }
 
 model Program {
-  id           String    @id @default(uuid())
+  id           String   @id @default(uuid())
   name         String
-  code         String    @unique
-  departmentId String    @map("department_id")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  code         String   @unique
+  departmentId String   @map("department_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  students     Student[]
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  students   Student[]
 
   @@unique([departmentId, name])
   @@map("programs")
 }
 
 model Course {
-  id           String    @id @default(uuid())
+  id           String   @id @default(uuid())
   title        String
-  code         String    @unique
-  creditHours  Int       @map("credit_hours")
-  departmentId String    @map("department_id")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  code         String   @unique
+  creditHours  Int      @map("credit_hours")
+  departmentId String   @map("department_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  sections     Section[]
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  sections   Section[]
 
   @@map("courses")
 }
 
 model Semester {
-  id        String    @id @default(uuid())
-  name      String    @unique
-  startDate DateTime  @map("start_date")
-  endDate   DateTime  @map("end_date")
-  isActive  Boolean   @default(false) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  name      String   @unique
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  sections  Section[]
+  sections Section[]
 
   @@map("semesters")
 }
 
 model Section {
-  id         String    @id @default(uuid())
-  name       String
-  courseId   String    @map("course_id")
-  facultyId  String    @map("faculty_id")
-  semesterId String    @map("semester_id")
-  maxSeats   Int       @default(40) @map("max_seats")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  id          String       @id @default(uuid())
+  name        String
+  courseId    String       @map("course_id")
+  facultyId   String       @map("faculty_id")
+  semesterId  String       @map("semester_id")
+  maxSeats    Int          @default(40) @map("max_seats")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
   enrollments Enrollment[]
+  timetables  Timetable[]
 
-  course     Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  faculty    Faculty   @relation(fields: [facultyId], references: [id], onDelete: Restrict)
-  semester   Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  faculty  Faculty  @relation(fields: [facultyId], references: [id], onDelete: Restrict)
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, name, semesterId])
   @@map("sections")
 }
 
 model Enrollment {
-  id         String   @id @default(uuid())
-  studentId  String   @map("student_id")
-  sectionId  String   @map("section_id")
+  id         String           @id @default(uuid())
+  studentId  String           @map("student_id")
+  sectionId  String           @map("section_id")
   status     EnrollmentStatus @default(ENROLLED)
-  enrolledAt DateTime @default(now()) @map("enrolled_at")
+  enrolledAt DateTime         @default(now()) @map("enrolled_at")
 
   // Relations
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  attendance Attendance[]
+  grading    Grading?
 
   @@unique([studentId, sectionId]) // prevent duplicate enrollment
   @@map("enrollments")
@@ -188,4 +193,108 @@ enum EnrollmentStatus {
   ENROLLED
   DROPPED
   COMPLETED
+}
+
+model Attendance {
+  id           String           @id @default(uuid())
+  enrollmentId String           @map("enrollment_id")
+  date         DateTime
+  status       AttendanceStatus
+  remarks      String?
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, date]) // prevent duplicate attendance per day
+  @@map("attendance")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+model Grading {
+  id           String @id @default(uuid())
+  enrollmentId String @unique @map("enrollment_id")
+
+  // Marks
+  assignment Float? @default(0)
+  quiz       Float? @default(0)
+  midterm    Float? @default(0)
+  finalExam  Float? @default(0) @map("final_exam")
+
+  totalMarks Float?  @map("total_marks")
+  grade      String? // A, B, C
+  gpa        Float? // 4.0 scale
+
+  remarks String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relation
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@map("grading")
+}
+
+model Timetable {
+  id        String   @id @default(uuid())
+  sectionId String   @map("section_id")
+  day       WeekDay
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
+  room      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("timetables")
+}
+
+enum WeekDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model LeaveRequest {
+  id         String      @id @default(uuid())
+  userId     String      @map("user_id")
+  type       LeaveType
+  reason     String
+  fromDate   DateTime    @map("from_date")
+  toDate     DateTime    @map("to_date")
+  status     LeaveStatus @default(PENDING)
+  reviewedBy String?     @map("reviewed_by")
+  remarks    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("leave_requests")
+}
+
+enum LeaveType {
+  MEDICAL
+  PERSONAL
+  EMERGENCY
+  OFFICIAL
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
