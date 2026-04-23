@@ -8,6 +8,10 @@ import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { GlobalExceptionFilter } from './common/filters/http-execption.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { EnrollmentModule } from './enrollment/enrollment.module';
+import { AttendanceModule } from './attendance/attendance.module';
+import { GradingModule } from './grading/grading.module';
+import { TimetableModule } from './timetable/timetable.module';
+import { LeaveRequestModule } from './leave-request/leave-request.module';
 
 @Module({
   imports: [
@@ -16,7 +20,11 @@ import { EnrollmentModule } from './enrollment/enrollment.module';
     AuthModule,
     UsersModule,
     AcademicModule,
-    EnrollmentModule
+    EnrollmentModule,
+    AttendanceModule,
+    GradingModule,
+    TimetableModule,
+    LeaveRequestModule
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
