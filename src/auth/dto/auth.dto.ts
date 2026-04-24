@@ -5,109 +5,82 @@ import {
   IsString,
   MinLength,
   IsDateString,
-  IsEnum,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
 
-const NON_STUDENT_ROLES = [Role.FACULTY, Role.ADMIN, Role.STAFF, Role.SECURITY];
+// ─────────────────────────────────────────────
+// RBAC ROLES (STATIC LIST ONLY FOR VALIDATION)
+// (DB still holds real roles)
+// ─────────────────────────────────────────────
+export const NON_STUDENT_ROLES = [
+  'FACULTY',
+  'ADMIN',
+  'STAFF',
+  'SECURITY',
+] as const;
+
 export type NonStudentRole = (typeof NON_STUDENT_ROLES)[number];
 
-export class RegisterStudentDto {
-  @ApiProperty({ example: 'student1@ums.edu.pk' })
-  @IsEmail({}, { message: 'Please provide a valid email' })
-  email: string;
+export class RegisterUserDto {
+  @ApiProperty()
+  @IsEmail()
+  email!: string;
 
-  @ApiProperty({ example: 'StrongPassword123!' })
+  @ApiProperty()
   @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
-  password: string;
+  @MinLength(8)
+  password!: string;
 
-  @ApiProperty({ example: 'Ali' })
-  @IsString()
-  @IsNotEmpty()
-  firstName: string;
-  @ApiProperty({ example: 'Khan' })
+  // profile type decides table
+  @ApiProperty({ example: 'STUDENT' })
   @IsString()
   @IsNotEmpty()
-  lastName: string;
+  type!: 'STUDENT' | 'FACULTY';
 
-  @ApiProperty({ example: 'BSCS-F21-001' })
-  @IsString()
-  @IsNotEmpty()
-  regNo: string; // e.g. "BSCS-F21-001"
-
-  @ApiProperty({ example: 'Fall-2021' })
-  @IsString()
-  @IsNotEmpty()
-  batch: string; // e.g. "Fall-2021"
-
-  @ApiPropertyOptional({ example: '+92-300-1234567' })
+  // STUDENT fields
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  phone?: string;
-  @ApiPropertyOptional({ example: 'Lahore, Pakistan' })
+  firstName?: string;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  address?: string;
-  @ApiPropertyOptional({ example: '2003-05-10' })
+  lastName?: string;
+
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
+  @IsString()
+  regNo?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  batch?: string;
+
+  // FACULTY fields
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  empId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  designation?: string;
 }
 
-export class RegisterFacultyDto {
-  @ApiProperty({ example: 'teacher1@ums.edu.pk' })
-  @IsEmail({}, { message: 'Please provide a valid email' })
-  email: string;
-
-  @ApiProperty({ example: 'StrongPassword123!' })
-  @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
-  password: string;
-
-  @ApiProperty({ example: 'Ayesha' })
-  @IsString()
-  @IsNotEmpty()
-  firstName: string;
-  @ApiProperty({ example: 'Rashid' })
-  @IsString()
-  @IsNotEmpty()
-  lastName: string;
-
-  @ApiProperty({ example: 'FAC-001' })
-  @IsString()
-  @IsNotEmpty()
-  empId: string; // e.g. "FAC-001"
-
-  @ApiProperty({ example: 'Associate Professor' })
-  @IsString()
-  @IsNotEmpty()
-  designation: string; // e.g. "Associate Professor"
-
-  @ApiPropertyOptional({
-    enum: NON_STUDENT_ROLES,
-    default: Role.FACULTY,
-    example: Role.ADMIN,
-    description: 'Select FACULTY, ADMIN, STAFF, or SECURITY',
-  })
-  @IsOptional()
-  @IsEnum(NON_STUDENT_ROLES)
-  role?: NonStudentRole;
-
-  @ApiPropertyOptional({ example: '+92-321-0001111' })
-  @IsOptional()
-  @IsString()
-  phone?: string;
-}
-
+// ─────────────────────────────────────────────
+// LOGIN DTO
+// ─────────────────────────────────────────────
 export class LoginDto {
   @ApiProperty({ example: 'student1@ums.edu.pk' })
   @IsEmail({}, { message: 'Please provide a valid email' })
-  email: string;
+  email!: string;
 
   @ApiProperty({ example: 'StrongPassword123!' })
   @IsString()
   @IsNotEmpty()
-  password: string;
+  password!: string;
 }

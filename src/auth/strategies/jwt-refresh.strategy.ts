@@ -1,27 +1,18 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-jwt';
-import { StrategyOptionsWithRequest } from 'passport-jwt';
+import { Strategy, StrategyOptionsWithRequest } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 
-const extractRefreshToken = (req: { headers?: { authorization?: string } }) => {
-  const authHeader = req.headers?.authorization?.trim();
-  if (!authHeader) {
-    return null;
-  }
+// ✅ helper function (you were missing this)
+const extractRefreshToken = (req: Request): string | null => {
+  const authHeader = req.headers?.authorization;
+  if (!authHeader) return null;
 
-  if (!authHeader.toLowerCase().startsWith('bearer ')) {
-    return authHeader;
-  }
+  if (!authHeader.startsWith('Bearer ')) return null;
 
-  const token = authHeader.slice(7).trim();
-  if (token.toLowerCase().startsWith('bearer ')) {
-    return token.slice(7).trim();
-  }
-
-  return token;
+  return authHeader.replace('Bearer', '').trim();
 };
 
 @Injectable()
@@ -33,15 +24,15 @@ export class JwtRefreshStrategy extends PassportStrategy(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
-    const options: StrategyOptionsWithRequest = {
+    super({
       jwtFromRequest: extractRefreshToken,
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_REFRESH_SECRET') ?? '',
+      secretOrKey: configService.get<string>('JWT_REFRESH_SECRET'),
       passReqToCallback: true,
-    };
-    super(options);
+    }as any);
   }
 
+  // ✅ MUST be inside class
   async validate(req: Request) {
     const refreshToken = extractRefreshToken(req);
 
@@ -49,22 +40,54 @@ export class JwtRefreshStrategy extends PassportStrategy(
       throw new UnauthorizedException('Refresh token not provided');
     }
 
-    // Check if this refresh token exists and is not expired
     const storedToken = await this.prisma.refreshToken.findUnique({
       where: { token: refreshToken },
       include: {
-        user: { select: { id: true, email: true, role: true, isActive: true } },
+        user: {
+          include: {
+            roles: {
+              include: {
+                role: {
+                  include: {
+                    permissions: {
+                      include: {
+                        permission: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
+    // ✅ fix undefined issue
     if (!storedToken || storedToken.expiresAt < new Date()) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    if (!storedToken.user.isActive) {
+    const user = storedToken.user;
+
+    if (!user || !user.isActive) {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    return { ...storedToken.user, refreshToken };
+    // ✅ extract roles
+    const roles = user.roles.map((r) => r.role.name);
+
+    // ✅ extract permissions
+    const permissions = user.roles.flatMap((r) =>
+      r.role.permissions.map((p) => p.permission.name),
+    );
+
+    return {
+      id: user.id,
+      email: user.email,
+      roles,
+      permissions,
+      refreshToken,
+    };
   }
 }

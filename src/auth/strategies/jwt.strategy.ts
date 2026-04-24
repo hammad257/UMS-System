@@ -44,18 +44,44 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super(options);
   }
 
-  // Called automatically after token signature is verified
-  // Return value is attached to request.user
-  async validate(payload: JwtPayload) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: { id: true, email: true, role: true, isActive: true },
-    });
+ async validate(payload: JwtPayload) {
+  const user = await this.prisma.user.findUnique({
+    where: { id: payload.sub },
+    include: {
+      roles: {
+        include: {
+          role: {
+            include: {
+              permissions: {
+                include: {
+                  permission: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
 
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('User not found or account deactivated');
-    }
-
-    return user; // → attached as req.user
+  // ✅ FIX: handle null
+  if (!user) {
+    throw new UnauthorizedException('User not found');
   }
+
+  // ✅ extract roles
+  const roles = user.roles.map((r) => r.role.name);
+
+  // ✅ extract permissions
+  const permissions = user.roles.flatMap((r) =>
+    r.role.permissions.map((p) => p.permission.name),
+  );
+
+  return {
+    id: user.id,
+    email: user.email,
+    roles,
+    permissions,
+  };
+}
 }

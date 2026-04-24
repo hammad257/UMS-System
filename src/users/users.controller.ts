@@ -26,8 +26,8 @@ export class UsersController {
   // ─── GET /users/me ────────────────────────────────────────────────────────────
   // Any authenticated user can view their own profile
   @Get('me')
-  getMyProfile(@CurrentUser() user: { id: string; role: Role }) {
-    return this.usersService.getMyProfile(user.id, user.role);
+  getMyProfile(@CurrentUser() user: { id: string }) {
+    return this.usersService.getMyProfile(user.id);
   }
 
   // ─── GET /users/students ──────────────────────────────────────────────────────

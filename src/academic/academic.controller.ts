@@ -10,18 +10,20 @@ import {
 import { JwtAuthGuard } from '../common/guards/Jwt auth.guard';
 import { RolesGuard } from '../common/guards/roles.gaurds';
 import { Roles } from '../common/guards/roles.decorator';
-import { Role } from '../common/types';
+// import { Role } from '../common/types';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Permissions } from 'src/common/guards/permissions.decorator';
+import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 
 @ApiTags('Academic')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('academic')
 export class AcademicController {
   constructor(private readonly academicService: AcademicService) {}
 
   @Post('departments')
-  @Roles(Role.ADMIN)
+  @Permissions("department.create")
   @ApiOperation({ summary: 'Create department (Admin only)' })
   @ApiBody({ type: CreateDepartmentDto })
   createDepartment(@Body() dto: CreateDepartmentDto) {
@@ -35,7 +37,8 @@ export class AcademicController {
   }
 
   @Post('programs')
-  @Roles(Role.ADMIN)
+  // @Roles('ADMIN')
+  @Permissions("programs.create")
   @ApiOperation({ summary: 'Create program under department (Admin only)' })
   @ApiBody({ type: CreateProgramDto })
   createProgram(@Body() dto: CreateProgramDto) {
@@ -49,7 +52,8 @@ export class AcademicController {
   }
 
   @Post('courses')
-  @Roles(Role.ADMIN)
+  @Permissions("course.create")
+  // @Roles('ADMIN')
   @ApiOperation({ summary: 'Create course (Admin only)' })
   @ApiBody({ type: CreateCourseDto })
   createCourse(@Body() dto: CreateCourseDto) {
@@ -63,7 +67,8 @@ export class AcademicController {
   }
 
   @Post('semesters')
-  @Roles(Role.ADMIN)
+  @Permissions("semester.create")
+  // @Roles('ADMIN')
   @ApiOperation({ summary: 'Create semester (Admin only)' })
   @ApiBody({ type: CreateSemesterDto })
   createSemester(@Body() dto: CreateSemesterDto) {
@@ -77,7 +82,8 @@ export class AcademicController {
   }
 
   @Post('sections')
-  @Roles(Role.ADMIN, Role.FACULTY)
+  @Permissions("section.create")
+  // @Roles('ADMIN', 'TEACHER')
   @ApiOperation({ summary: 'Create section (Admin/Faculty)' })
   @ApiBody({ type: CreateSectionDto })
   createSection(@Body() dto: CreateSectionDto) {
