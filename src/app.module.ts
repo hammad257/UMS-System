@@ -12,6 +12,7 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { GradingModule } from './grading/grading.module';
 import { TimetableModule } from './timetable/timetable.module';
 import { LeaveRequestModule } from './leave-request/leave-request.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { LeaveRequestModule } from './leave-request/leave-request.module';
     AttendanceModule,
     GradingModule,
     TimetableModule,
-    LeaveRequestModule
+    LeaveRequestModule,
+    AdminModule
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },

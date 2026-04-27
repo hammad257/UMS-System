@@ -13,3 +13,8 @@ export interface AuthUser {
   role: Role;
   isActive: boolean;
 }
+
+export enum UserRole {
+  STUDENT = 'STUDENT',
+  FACULTY = 'FACULTY',
+}

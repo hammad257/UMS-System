@@ -26,14 +26,14 @@ export class UsersController {
   // ─── GET /users/me ────────────────────────────────────────────────────────────
   // Any authenticated user can view their own profile
   @Get('me')
-  getMyProfile(@CurrentUser() user: { id: string; role: Role }) {
-    return this.usersService.getMyProfile(user.id, user.role);
+  getMyProfile(@CurrentUser() user: { id: string }) {
+    return this.usersService.getMyProfile(user.id);
   }
 
   // ─── GET /users/students ──────────────────────────────────────────────────────
   // Only FACULTY and ADMIN can list all students
   @Get('students')
-  @Roles(Role.FACULTY, Role.ADMIN)
+  @Roles(Role.FACULTY, 'SUPER ADMIN')
   getAllStudents(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,

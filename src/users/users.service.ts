@@ -1,59 +1,41 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '../common/types';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   // ─── GET OWN PROFILE ─────────────────────────────────────────────────────────
-  async getMyProfile(userId: string, role: Role) {
+  async getMyProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        // Include whichever profile exists
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            regNo: true,
-            batch: true,
-            phone: true,
-            address: true,
-            dateOfBirth: true,
-            createdAt: true,
+      include: {
+        roles: {
+          include: {
+            role: true,
           },
         },
-        faculty: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            empId: true,
-            designation: true,
-            phone: true,
-            createdAt: true,
-          },
-        },
+        student: true,
+        faculty: true,
       },
     });
 
     if (!user) throw new NotFoundException('User not found');
 
-    const profile = role === Role.STUDENT ? user.student : user.faculty;
+    // ✅ extract roles
+    const roles = user.roles.map((r) => r.role.name);
+
+    // ✅ decide profile dynamically
+    const profile = roles.includes('STUDENT')
+      ? user.student
+      : user.faculty;
 
     return {
       message: 'Profile fetched successfully',
       data: {
         id: user.id,
         email: user.email,
-        role: user.role,
+        roles, // ✅ now array
         isActive: user.isActive,
         createdAt: user.createdAt,
         profile,
@@ -61,12 +43,18 @@ export class UsersService {
     };
   }
 
-  // ─── GET STUDENT PROFILE BY ID (Admin / Faculty use) ─────────────────────────
+  // ─── GET STUDENT PROFILE BY ID ───────────────────────────────────────────────
   async getStudentById(studentId: string) {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
       include: {
-        user: { select: { email: true, isActive: true, createdAt: true } },
+        user: {
+          select: {
+            email: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
@@ -75,12 +63,18 @@ export class UsersService {
     return { message: 'Student profile fetched', data: student };
   }
 
-  // ─── GET FACULTY PROFILE BY ID (Admin use) ────────────────────────────────────
+  // ─── GET FACULTY PROFILE BY ID ───────────────────────────────────────────────
   async getFacultyById(facultyId: string) {
     const faculty = await this.prisma.faculty.findUnique({
       where: { id: facultyId },
       include: {
-        user: { select: { email: true, isActive: true, createdAt: true } },
+        user: {
+          select: {
+            email: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
@@ -89,7 +83,7 @@ export class UsersService {
     return { message: 'Faculty profile fetched', data: faculty };
   }
 
-  // ─── LIST ALL STUDENTS (Admin / Faculty use) ──────────────────────────────────
+  // ─── LIST ALL STUDENTS ───────────────────────────────────────────────────────
   async getAllStudents(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
 
@@ -98,7 +92,13 @@ export class UsersService {
         skip,
         take: limit,
         include: {
-          user: { select: { email: true, isActive: true } },
+          user: {
+            include: {
+              roles: {
+                include: { role: true },
+              },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -119,7 +119,7 @@ export class UsersService {
     };
   }
 
-  // ─── LIST ALL FACULTY (Admin use) ─────────────────────────────────────────────
+  // ─── LIST ALL FACULTY ────────────────────────────────────────────────────────
   async getAllFaculty(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
 
@@ -128,7 +128,13 @@ export class UsersService {
         skip,
         take: limit,
         include: {
-          user: { select: { email: true, isActive: true } },
+          user: {
+            include: {
+              roles: {
+                include: { role: true },
+              },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -149,9 +155,12 @@ export class UsersService {
     };
   }
 
-  // ─── DEACTIVATE USER (Admin use) ──────────────────────────────────────────────
+  // ─── DEACTIVATE USER ─────────────────────────────────────────────────────────
   async deactivateUser(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
     if (!user) throw new NotFoundException('User not found');
 
     await this.prisma.user.update({
@@ -159,7 +168,7 @@ export class UsersService {
       data: { isActive: false },
     });
 
-    // Revoke all sessions
+    // revoke all sessions
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
 
     return { message: 'User deactivated successfully', data: null };
