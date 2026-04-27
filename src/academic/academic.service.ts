@@ -24,7 +24,15 @@ export class AcademicService {
       throw new ConflictException('Department name/code already exists');
     }
 
-    const department = await this.prisma.department.create({ data: dto });
+    const department = await this.prisma.department.create({ 
+      data: {
+    name: dto.name,
+    code: dto.code,
+    academicFaculty: {
+      connect: { id: dto.academicFacultyId },
+    },
+  },
+     });
     return { message: 'Department created', data: department };
   }
 

@@ -13,6 +13,9 @@ import { GradingModule } from './grading/grading.module';
 import { TimetableModule } from './timetable/timetable.module';
 import { LeaveRequestModule } from './leave-request/leave-request.module';
 import { AdminModule } from './admin/admin.module';
+import { CampusModule } from './campus/campus.module';
+import { AcademicFacultyModule } from './faculty/faculty.module';
+import { BatchModule } from './batch/batch.module';
 
 @Module({
   imports: [
@@ -26,7 +29,10 @@ import { AdminModule } from './admin/admin.module';
     GradingModule,
     TimetableModule,
     LeaveRequestModule,
-    AdminModule
+    AdminModule,
+    CampusModule,
+    AcademicFacultyModule,
+    BatchModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },

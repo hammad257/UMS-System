@@ -24,6 +24,54 @@ model User {
   @@map("users")
 }
 
+model Campus {
+  id      String  @id @default(uuid())
+  name    String  @unique
+  code    String  @unique
+  address String?
+  city    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  faculties AcademicFaculty[]
+
+  @@map("campuses")
+}
+
+model AcademicFaculty {
+  id       String @id @default(uuid())
+  name     String
+  code     String @unique
+  campusId String @map("campus_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  campus      Campus       @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  departments Department[]
+
+  @@unique([campusId, name])
+  @@map("academic_faculties")
+}
+
+model Batch {
+  id        String @id @default(uuid())
+  name      String // e.g. "BSCS-2023"
+  startYear Int
+  endYear   Int?
+  programId String @map("program_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  program  Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  students Student[]
+
+  @@unique([programId, name])
+  @@map("batches")
+}
+
 model Role {
   id          String  @id @default(uuid())
   name        String  @unique // ADMIN, STUDENT, etc
@@ -89,7 +137,6 @@ model Student {
   firstName   String       @map("first_name")
   lastName    String       @map("last_name")
   regNo       String       @unique @map("reg_no")
-  batch       String
   phone       String?
   address     String?
   dateOfBirth DateTime?    @map("date_of_birth")
@@ -100,6 +147,8 @@ model Student {
   // Relations
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   program Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  batchId String?  @map("batch_id")
+  batch   Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
 
   @@map("students")
 }
@@ -144,9 +193,11 @@ model Department {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  programs Program[]
-  courses  Course[]
-  faculty  Faculty[]
+  programs          Program[]
+  courses           Course[]
+  faculty           Faculty[]
+  academicFacultyId String?  @map("academic_faculty_id")
+  academicFaculty   AcademicFaculty? @relation(fields: [academicFacultyId], references: [id], onDelete: Cascade)
 
   @@map("departments")
 }
@@ -161,6 +212,7 @@ model Program {
 
   department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   students   Student[]
+  batches    Batch[]
 
   @@unique([departmentId, name])
   @@map("programs")

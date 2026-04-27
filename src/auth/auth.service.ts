@@ -60,7 +60,7 @@ export class AuthService {
               firstName: dto.firstName!,
               lastName: dto.lastName!,
               regNo: dto.regNo!,
-              batch: dto.batch!,
+              // batch: dto.batch!,
             },
           }
         : undefined,
