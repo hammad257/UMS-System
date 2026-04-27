@@ -33,7 +33,7 @@ export class UsersController {
   // ─── GET /users/students ──────────────────────────────────────────────────────
   // Only FACULTY and ADMIN can list all students
   @Get('students')
-  @Roles(Role.FACULTY, Role.ADMIN)
+  @Roles(Role.FACULTY, 'SUPER ADMIN')
   getAllStudents(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,

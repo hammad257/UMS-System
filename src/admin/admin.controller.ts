@@ -16,12 +16,22 @@ import { CreatePermissionDto } from './dto/create-permission.dto';
 import { AssignPermissionDto } from './dto/assign-permission.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
 import { Role } from 'src/common/types';
+import { PermissionScannerService } from 'src/common/rbac/permissions-scanner.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-// @Roles(Role.ADMIN)
+@Roles('SUPER ADMIN')
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(private readonly adminService: AdminService,
+private readonly permissionScanner: PermissionScannerService
+  ) {
+    
+  }
+
+  @Get('permissions/catalog')
+  getPermissionCatalog() {
+    return this.permissionScanner.scanPermissions();
+  }
 
   // ─── ROLES ─────────────────────────────────────
   @Post('roles')

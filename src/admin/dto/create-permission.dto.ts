@@ -16,4 +16,12 @@ export class CreatePermissionDto {
   })
   @IsString()
   description?: string;
+
+  @ApiProperty({
+    example: 'Academic',
+    description: 'Module name like Academic, Enrollment, UserManagement',
+  })
+  @IsString()
+  @IsNotEmpty()
+  module!: string;
 }

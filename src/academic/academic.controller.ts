@@ -14,6 +14,7 @@ import { Roles } from '../common/guards/roles.decorator';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from 'src/common/guards/permissions.decorator';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
+import { ModuleName } from 'src/common/guards/permissions.module.decorator';
 
 @ApiTags('Academic')
 @ApiBearerAuth('access-token')
@@ -23,6 +24,7 @@ export class AcademicController {
   constructor(private readonly academicService: AcademicService) {}
 
   @Post('departments')
+  @ModuleName('Academic')
   @Permissions("department.create")
   @ApiOperation({ summary: 'Create department (Admin only)' })
   @ApiBody({ type: CreateDepartmentDto })
@@ -37,6 +39,7 @@ export class AcademicController {
   }
 
   @Post('programs')
+  @ModuleName('Academic')
   // @Roles('ADMIN')
   @Permissions("programs.create")
   @ApiOperation({ summary: 'Create program under department (Admin only)' })
@@ -52,6 +55,7 @@ export class AcademicController {
   }
 
   @Post('courses')
+  @ModuleName('Academic')
   @Permissions("course.create")
   // @Roles('ADMIN')
   @ApiOperation({ summary: 'Create course (Admin only)' })
@@ -67,6 +71,7 @@ export class AcademicController {
   }
 
   @Post('semesters')
+  @ModuleName('Academic')
   @Permissions("semester.create")
   // @Roles('ADMIN')
   @ApiOperation({ summary: 'Create semester (Admin only)' })
@@ -82,6 +87,7 @@ export class AcademicController {
   }
 
   @Post('sections')
+  @ModuleName('Academic')
   @Permissions("section.create")
   // @Roles('ADMIN', 'TEACHER')
   @ApiOperation({ summary: 'Create section (Admin/Faculty)' })

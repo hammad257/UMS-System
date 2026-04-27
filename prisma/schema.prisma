@@ -41,6 +41,7 @@ model Role {
 model Permission {
   id          String  @id @default(uuid())
   name        String  @unique // e.g. "attendance.view"
+  module      String  @default("Academic")
   description String?
 
   roles RolePermission[]
