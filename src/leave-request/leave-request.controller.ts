@@ -25,14 +25,18 @@ import {
 } from '@nestjs/swagger';
 import { LeaveStatus } from '@prisma/client';
 import { UpdateLeaveStatusDto } from './dto/update-leave-request.dto';
+import { PermissionsGuard } from 'src/common/guards/permissions.guard';
+import { ModuleName } from 'src/common/guards/permissions.module.decorator';
+import { Permissions } from 'src/common/guards/permissions.decorator';
 
 @Controller('leave')
 @ApiTags('Leave Requests')
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class LeaveRequestController {
   constructor(private readonly service: LeaveRequestService) {}
 
   // Create request (Student/Faculty)
-  @UseGuards(JwtAuthGuard)
+  // @UseGuards(JwtAuthGuard)
   @Post()
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Create leave request' })
@@ -41,24 +45,26 @@ export class LeaveRequestController {
   }
 
   // Admin - all requests
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Get()
   findAll() {
     return this.service.findAll();
   }
 
   // User - own requests
-  @UseGuards(JwtAuthGuard)
+  // @UseGuards(JwtAuthGuard)
   @Get('user/:userId')
   findByUser(@Param('userId') userId: string) {
     return this.service.findByUser(userId);
   }
 
   // Approve / Reject (Admin only)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Patch(':id/status')
+  @ModuleName('LeaveRequest')
+    @Permissions("leave-request.update")
   updateStatus(
     @Param('id') id: string,
     @Body() body: UpdateLeaveStatusDto,
@@ -67,8 +73,8 @@ export class LeaveRequestController {
   }
 
   // Delete
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles(Role.ADMIN)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.service.remove(id);
