@@ -83,7 +83,7 @@ export class AcademicController {
   @Get('semesters')
   @ApiOperation({ summary: 'Get all semesters' })
   getSemesters() {
-    return this.academicService.getSemesters();
+    return this.academicService.getAllSemesters();
   }
 
   @Post('sections')
