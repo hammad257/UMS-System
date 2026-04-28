@@ -17,20 +17,21 @@ export class BatchController {
   constructor(private readonly service: BatchService) {}
 
   @Post()
-  @ModuleName('Academic')
+  @ModuleName('Batch')
   @Permissions('batch.create')
   create(@Body() dto: CreateBatchDto) {
     return this.service.create(dto);
   }
 
   @Get()
-  @ModuleName('Academic')
+  @ModuleName('Batch')
   @Permissions('batch.view')
   findAll() {
     return this.service.findAll();
   }
 
   @Get(':id')
+  @ModuleName('Batch')
   @Permissions('batch.view')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);

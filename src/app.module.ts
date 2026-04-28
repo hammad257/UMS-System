@@ -16,6 +16,7 @@ import { AdminModule } from './admin/admin.module';
 import { CampusModule } from './campus/campus.module';
 import { AcademicFacultyModule } from './faculty/faculty.module';
 import { BatchModule } from './batch/batch.module';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { BatchModule } from './batch/batch.module';
     CampusModule,
     AcademicFacultyModule,
     BatchModule,
+    MediaModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },

@@ -113,31 +113,59 @@ export class AcademicService {
     return { message: 'Courses fetched', data: courses };
   }
 
-  async createSemester(dto: CreateSemesterDto) {
-    const duplicate = await this.prisma.semester.findUnique({
-      where: { name: dto.name },
-    });
-    if (duplicate) {
-      throw new ConflictException('Semester name already exists');
-    }
+ async createSemester(dto: CreateSemesterDto) {
+  const duplicate = await this.prisma.semester.findFirst({
+    where: { name: dto.name },
+  });
 
-    const semester = await this.prisma.semester.create({
-      data: {
-        name: dto.name,
-        startDate: new Date(dto.startDate),
-        endDate: new Date(dto.endDate),
+  if (duplicate) {
+    throw new ConflictException('Semester already exists');
+  }
+
+  const semester = await this.prisma.semester.create({
+    data: {
+      name: dto.name,
+      academicYear: dto.academicYear,
+      startDate: new Date(dto.startDate),
+      endDate: new Date(dto.endDate),
+      programId: dto.programId ?? null,
+    },
+  });
+
+  return {
+    message: 'Semester created successfully',
+    data: semester,
+  };
+}
+
+async getAllSemesters() {
+  return this.prisma.semester.findMany({
+    include: {
+      program: {
+        include: {
+          department: {
+            include: {
+              academicFaculty: {
+                include: {
+                  campus: true,
+                },
+              },
+            },
+          },
+        },
       },
-    });
-    return { message: 'Semester created', data: semester };
-  }
+      sections: true,
+    },
+  });
+}
 
-  async getSemesters() {
-    const semesters = await this.prisma.semester.findMany({
-      include: { _count: { select: { sections: true } } },
-      orderBy: { startDate: 'desc' },
-    });
-    return { message: 'Semesters fetched', data: semesters };
-  }
+  // async getSemesters() {
+  //   const semesters = await this.prisma.semester.findMany({
+  //     include: { _count: { select: { sections: true } } },
+  //     orderBy: { startDate: 'desc' },
+  //   });
+  //   return { message: 'Semesters fetched', data: semesters };
+  // }
 
   async createSection(dto: CreateSectionDto) {
     const [course, semester, faculty] = await this.prisma.$transaction([

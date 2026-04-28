@@ -72,6 +72,11 @@ export class CreateSemesterDto {
   @IsNotEmpty()
   name!: string;
 
+  @ApiProperty({ example: '2026-2027' })
+  @IsString()
+  @IsNotEmpty()
+  academicYear!: string;
+
   @ApiProperty({ example: '2026-08-15' })
   @IsDateString()
   startDate!: string;
@@ -79,6 +84,11 @@ export class CreateSemesterDto {
   @ApiProperty({ example: '2026-12-20' })
   @IsDateString()
   endDate!: string;
+
+  @ApiPropertyOptional({ example: 'program-uuid' })
+  @IsOptional()
+  @IsString()
+  programId?: string;
 }
 
 export class CreateSectionDto {
