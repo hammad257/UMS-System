@@ -1,67 +1,101 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+export enum SystemRole {
+  ADMIN = 'ADMIN',
+  STUDENT = 'STUDENT',
+  FACULTY = 'FACULTY',
+}
+
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   // ─── GET OWN PROFILE ─────────────────────────────────────────────────────────
   async getMyProfile(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        roles: {
-          include: {
-            role: true,
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      roles: {
+        select: {
+          role: {
+            select: {
+              name: true,
+            },
           },
         },
-        student: true,
-        faculty: true,
       },
-    });
-
-    if (!user) throw new NotFoundException('User not found');
-
-    // ✅ extract roles
-    const roles = user.roles.map((r) => r.role.name);
-
-    // ✅ decide profile dynamically
-    const profile = roles.includes('STUDENT')
-      ? user.student
-      : user.faculty;
-
-    return {
-      message: 'Profile fetched successfully',
-      data: {
-        id: user.id,
-        email: user.email,
-        roles, // ✅ now array
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        profile,
+      student: {
+        include: {
+          program: true,
+          batch: true,
+          currentSemester: true,
+          guardians: {
+            include: {
+              guardian: true,
+            },
+          },
+        },
       },
-    };
+      faculty: true,
+    },
+  });
+
+  if (!user) throw new NotFoundException('User not found');
+
+  const roles = user.roles.map((r) => r.role.name);
+
+  let profile = null as any;
+
+  if (roles.includes(SystemRole.STUDENT)) {
+    profile = user.student;
+  } else if (roles.includes(SystemRole.FACULTY)) {
+    profile = user.faculty;
   }
+
+  return {
+    message: 'Profile fetched successfully',
+    data: {
+      id: user.id,
+      email: user.email,
+      roles,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      profile,
+    },
+  };
+}
 
   // ─── GET STUDENT PROFILE BY ID ───────────────────────────────────────────────
   async getStudentById(studentId: string) {
-    const student = await this.prisma.student.findUnique({
-      where: { id: studentId },
-      include: {
-        user: {
-          select: {
-            email: true,
-            isActive: true,
-            createdAt: true,
-          },
+  const student = await this.prisma.student.findUnique({
+    where: { id: studentId },
+    include: {
+      user: {
+        select: {
+          email: true,
+          isActive: true,
+          createdAt: true,
         },
       },
-    });
+      program: true,
+      batch: true,
+      currentSemester: true,
+      guardians: {
+        include: {
+          guardian: true,
+        },
+      },
+    },
+  });
 
-    if (!student) throw new NotFoundException('Student not found');
+  if (!student) throw new NotFoundException('Student not found');
 
-    return { message: 'Student profile fetched', data: student };
-  }
+  return {
+    message: 'Student profile fetched',
+    data: student,
+  };
+}
 
   // ─── GET FACULTY PROFILE BY ID ───────────────────────────────────────────────
   async getFacultyById(facultyId: string) {
@@ -80,7 +114,10 @@ export class UsersService {
 
     if (!faculty) throw new NotFoundException('Faculty not found');
 
-    return { message: 'Faculty profile fetched', data: faculty };
+    return {
+      message: 'Faculty profile fetched',
+      data: faculty,
+    };
   }
 
   // ─── LIST ALL STUDENTS ───────────────────────────────────────────────────────
@@ -91,6 +128,11 @@ export class UsersService {
       this.prisma.student.findMany({
         skip,
         take: limit,
+        where: {
+          user: {
+            isActive: true,
+          },
+        },
         include: {
           user: {
             include: {
@@ -102,7 +144,13 @@ export class UsersService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.student.count(),
+      this.prisma.student.count({
+        where: {
+          user: {
+            isActive: true,
+          },
+        },
+      }),
     ]);
 
     return {
@@ -127,6 +175,11 @@ export class UsersService {
       this.prisma.faculty.findMany({
         skip,
         take: limit,
+        where: {
+          user: {
+            isActive: true,
+          },
+        },
         include: {
           user: {
             include: {
@@ -138,7 +191,13 @@ export class UsersService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.faculty.count(),
+      this.prisma.faculty.count({
+        where: {
+          user: {
+            isActive: true,
+          },
+        },
+      }),
     ]);
 
     return {
@@ -169,8 +228,13 @@ export class UsersService {
     });
 
     // revoke all sessions
-    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
 
-    return { message: 'User deactivated successfully', data: null };
+    return {
+      message: 'User deactivated successfully',
+      data: null,
+    };
   }
 }

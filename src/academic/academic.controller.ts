@@ -3,8 +3,10 @@ import { AcademicService } from './academic.service';
 import {
   CreateCourseDto,
   CreateDepartmentDto,
+  CreateProgramCourseDto,
   CreateProgramDto,
   CreateSectionDto,
+  CreateSemesterCourseDto,
   CreateSemesterDto,
 } from './dto/academic.dto';
 import { JwtAuthGuard } from '../common/guards/Jwt auth.guard';
@@ -101,4 +103,32 @@ export class AcademicController {
   getSections() {
     return this.academicService.getSections();
   }
+
+  @Post('program-courses')
+// @ModuleName('Academic')
+// @Permissions("programcourse.create")
+@ApiOperation({ summary: 'Assign course to program' })
+createProgramCourse(@Body() dto: CreateProgramCourseDto) {
+  return this.academicService.createProgramCourse(dto);
+}
+
+@Get('program-courses')
+@ApiOperation({ summary: 'Get program courses' })
+getProgramCourses() {
+  return this.academicService.getProgramCourses();
+}
+
+@Post('semester-courses')
+// @ModuleName('Academic')
+// @Permissions("semestercourse.create")
+@ApiOperation({ summary: 'Assign course to semester' })
+createSemesterCourse(@Body() dto: CreateSemesterCourseDto) {
+  return this.academicService.createSemesterCourse(dto);
+}
+
+@Get('semester-courses')
+@ApiOperation({ summary: 'Get semester courses' })
+getSemesterCourses() {
+  return this.academicService.getSemesterCourses();
+}
 }

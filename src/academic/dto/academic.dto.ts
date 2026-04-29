@@ -118,3 +118,32 @@ export class CreateSectionDto {
   @Min(1)
   maxSeats?: number;
 }
+
+export class CreateProgramCourseDto {
+  @ApiProperty({ example: 'program-uuid' })
+  @IsString()
+  @IsNotEmpty()
+  programId!: string;
+
+  @ApiProperty({ example: 'course-uuid' })
+  @IsString()
+  @IsNotEmpty()
+  courseId!: string;
+}
+
+export class CreateSemesterCourseDto {
+  @ApiProperty({ example: 'semester-uuid' })
+  @IsString()
+  @IsNotEmpty()
+  semesterId!: string;
+
+  @ApiProperty({ example: 'course-uuid' })
+  @IsString()
+  @IsNotEmpty()
+  courseId!: string;
+
+  @ApiProperty({ example: 'program-uuid' })
+  @IsString()
+  @IsNotEmpty()
+  programId!: string;
+}

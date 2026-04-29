@@ -33,7 +33,7 @@ export class UsersController {
   // ─── GET /users/students ──────────────────────────────────────────────────────
   // Only FACULTY and ADMIN can list all students
   @Get('students')
-  @Roles(Role.FACULTY, 'SUPER ADMIN')
+  // @Roles('FACULTY', 'SUPER_ADMIN')
   getAllStudents(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -44,7 +44,7 @@ export class UsersController {
   // ─── GET /users/faculty ───────────────────────────────────────────────────────
   // Only ADMIN can list all faculty
   @Get('faculty')
-  @Roles(Role.ADMIN)
+  // @Roles(Role.ADMIN)
   getAllFaculty(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -54,21 +54,21 @@ export class UsersController {
 
   // ─── GET /users/students/:id ──────────────────────────────────────────────────
   @Get('students/:id')
-  @Roles(Role.FACULTY, Role.ADMIN)
+  // @Roles(Role.FACULTY, Role.ADMIN)
   getStudentById(@Param('id') id: string) {
     return this.usersService.getStudentById(id);
   }
 
   // ─── GET /users/faculty/:id ───────────────────────────────────────────────────
   @Get('faculty/:id')
-  @Roles(Role.ADMIN)
+  // @Roles(Role.ADMIN)
   getFacultyById(@Param('id') id: string) {
     return this.usersService.getFacultyById(id);
   }
 
   // ─── PATCH /users/:id/deactivate ─────────────────────────────────────────────
   @Patch(':id/deactivate')
-  @Roles(Role.ADMIN)
+  // @Roles(Role.ADMIN)
   deactivateUser(@Param('id') id: string) {
     return this.usersService.deactivateUser(id);
   }

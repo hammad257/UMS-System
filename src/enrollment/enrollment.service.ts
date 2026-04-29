@@ -15,55 +15,106 @@ import {
     constructor(private readonly prisma: PrismaService) {}
   
     // ─── CREATE ENROLLMENT (ADMIN) ───────────────────────────────────────────────
-    async create(dto: CreateEnrollmentDto) {
-      const { studentId, sectionId } = dto;
+    // async create(dto: CreateEnrollmentDto) {
+    //   const { studentId, sectionId } = dto;
   
-      // check student
-      const student = await this.prisma.student.findUnique({
-        where: { id: studentId },
-      });
-      if (!student) throw new NotFoundException('Student not found');
+    //   // check student
+    //   const student = await this.prisma.student.findUnique({
+    //     where: { id: studentId },
+    //   });
+    //   if (!student) throw new NotFoundException('Student not found');
   
-      // check section + seats
-      const section = await this.prisma.section.findUnique({
-        where: { id: sectionId },
-        include: { enrollments: true },
-      });
-      if (!section) throw new NotFoundException('Section not found');
+    //   // check section + seats
+    //   const section = await this.prisma.section.findUnique({
+    //     where: { id: sectionId },
+    //     include: { enrollments: true },
+    //   });
+    //   if (!section) throw new NotFoundException('Section not found');
   
-      if (section.enrollments.length >= section.maxSeats) {
-        throw new BadRequestException('Section is full');
-      }
+    //   if (section.enrollments.length >= section.maxSeats) {
+    //     throw new BadRequestException('Section is full');
+    //   }
   
-      // prevent duplicate
-      const existing = await this.prisma.enrollment.findUnique({
-        where: {
-          studentId_sectionId: {
-            studentId,
-            sectionId,
-          },
-        },
-      });
+    //   // prevent duplicate
+    //   const existing = await this.prisma.enrollment.findUnique({
+    //     where: {
+    //       studentId_sectionId: {
+    //         studentId,
+    //         sectionId,
+    //       },
+    //     },
+    //   });
   
-      if (existing) {
-        throw new BadRequestException(
-          'Student already enrolled in this section',
-        );
-      }
+    //   if (existing) {
+    //     throw new BadRequestException(
+    //       'Student already enrolled in this section',
+    //     );
+    //   }
   
-      const enrollment = await this.prisma.enrollment.create({
-        data: { studentId, sectionId },
-      });
+    //   const enrollment = await this.prisma.enrollment.create({
+    //     data: { studentId, sectionId },
+    //   });
   
-      this.logger.log(
-        `Student ${studentId} enrolled in section ${sectionId}`,
-      );
+    //   this.logger.log(
+    //     `Student ${studentId} enrolled in section ${sectionId}`,
+    //   );
   
-      return {
-        message: 'Enrollment created successfully',
-        data: enrollment,
-      };
-    }
+    //   return {
+    //     message: 'Enrollment created successfully',
+    //     data: enrollment,
+    //   };
+    // }
+
+  async enrollSelf(userId: string, sectionId: string) {
+  // 1. get student from user
+  const student = await this.prisma.student.findUnique({
+    where: { userId },
+  });
+
+  if (!student || !student.programId) {
+    throw new NotFoundException('Student not properly registered');
+  }
+
+  // 2. check section
+  const section = await this.prisma.section.findUnique({
+    where: { id: sectionId },
+    include: { enrollments: true },
+  });
+
+  if (!section) throw new NotFoundException('Section not found');
+
+  // 3. check seats
+  if (section.enrollments.length >= section.maxSeats) {
+    throw new BadRequestException('Section is full');
+  }
+
+  // 4. prevent duplicate
+  const existing = await this.prisma.enrollment.findUnique({
+    where: {
+      studentId_sectionId: {
+        studentId: student.id,
+        sectionId,
+      },
+    },
+  });
+
+  if (existing) {
+    throw new BadRequestException('Already enrolled in this section');
+  }
+
+  // 5. create enrollment
+  const enrollment = await this.prisma.enrollment.create({
+    data: {
+      studentId: student.id,
+      sectionId,
+    },
+  });
+
+  return {
+    message: 'Enrolled successfully',
+    data: enrollment,
+  };
+}
   
     // ─── GET ALL ENROLLMENTS (ADMIN) ─────────────────────────────────────────────
     async findAll() {

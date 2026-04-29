@@ -24,8 +24,8 @@ export class BatchController {
   }
 
   @Get()
-  @ModuleName('Batch')
-  @Permissions('batch.view')
+  // @ModuleName('Batch')
+  // @Permissions('batch.view')
   findAll() {
     return this.service.findAll();
   }

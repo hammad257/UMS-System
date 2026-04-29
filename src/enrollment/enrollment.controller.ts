@@ -19,6 +19,7 @@ import { ModuleName } from 'src/common/guards/permissions.module.decorator';
 import { Permissions } from 'src/common/guards/permissions.decorator';
 import { RolesGuard } from 'src/common/guards/roles.gaurds';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
+import { CurrentUser } from 'src/common/guards/roles.decorator';
 
 @Controller('enrollments')
 @ApiTags('Enrollment')
@@ -28,16 +29,28 @@ export class EnrollmentController {
 
   // ─── CREATE ────────────────────────────────────────────────────────────────
   // @UseGuards(JwtAuthGuard)
-  @Post()
-  @ModuleName('Enrollment')
-  @Permissions("enrollment.create")
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Enroll student into section (Admin)' })
-  @ApiBody({ type: CreateEnrollmentDto })
-  @HttpCode(HttpStatus.CREATED)
-  create(@Body() dto: CreateEnrollmentDto) {
-    return this.enrollmentService.create(dto);
-  }
+  // @Post()
+  // @ModuleName('Enrollment')
+  // @Permissions("enrollment.create")
+  // @ApiBearerAuth('access-token')
+  // @ApiOperation({ summary: 'Enroll student into section (Admin)' })
+  // @ApiBody({ type: CreateEnrollmentDto })
+  // @HttpCode(HttpStatus.CREATED)
+  // create(@Body() dto: CreateEnrollmentDto) {
+  //   return this.enrollmentService.create(dto);
+  // }
+
+  @Post('enroll')
+@ModuleName('Enrollment')
+@Permissions("enrollment.create")
+@ApiOperation({ summary: 'Student self enroll into section' })
+create(
+  @Body() dto: CreateEnrollmentDto,
+  @CurrentUser() user: { id: string }
+) {
+  return this.enrollmentService.enrollSelf(user.id, dto.sectionId);
+}
+
 
   // ─── GET ALL ───────────────────────────────────────────────────────────────
   // @UseGuards(JwtAuthGuard)
