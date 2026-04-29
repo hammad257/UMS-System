@@ -7,11 +7,6 @@ export class UpdateStudentProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  profilePhoto?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
   phone?: string;
 
   @ApiPropertyOptional()

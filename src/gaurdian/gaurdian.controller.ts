@@ -20,7 +20,7 @@ import { ModuleName } from '../common/guards/permissions.module.decorator';
 import { Permissions } from '../common/guards/permissions.decorator';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from 'src/common/guards/roles.decorator';
-import { Role } from 'src/generated/prisma/enums';
+import { Role } from 'src/common/types';
 
 @Controller('guardians')
 @ApiTags('Guardian')

@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { existsSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { AddGuardianDto } from './dto/create-student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateStudentAcademicDto, UpdateStudentProfileDto } from './dto/update-student.dto';
+
+const LOCAL_PROFILE_PREFIX = '/uploads/students/';
 
 @Injectable()
 export class StudentService {
@@ -39,21 +43,43 @@ export class StudentService {
 }
 
 
- async updateProfile(studentId: string, dto: UpdateStudentProfileDto) {
-  const student = await this.prisma.student.findUnique({
-    where: { id: studentId },
-  });
+  async updateProfile(
+    studentId: string,
+    dto: UpdateStudentProfileDto,
+    profilePhotoPath?: string,
+  ) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+    });
 
-  if (!student) throw new NotFoundException('Student not found');
+    if (!student) throw new NotFoundException('Student not found');
 
-  return this.prisma.student.update({
-    where: { id: studentId },
-    data: {
-      ...dto,
-      dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-    },
-  });
-}
+    if (profilePhotoPath) {
+      this.tryRemoveLocalProfileFile(student.profilePhoto);
+    }
+
+    return this.prisma.student.update({
+      where: { id: studentId },
+      data: {
+        ...dto,
+        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+        ...(profilePhotoPath ? { profilePhoto: profilePhotoPath } : {}),
+      },
+    });
+  }
+
+  private tryRemoveLocalProfileFile(storedPath: string | null) {
+    if (!storedPath?.startsWith(LOCAL_PROFILE_PREFIX)) return;
+    const relative = storedPath.replace(/^\//, '');
+    const full = join(process.cwd(), relative);
+    if (existsSync(full)) {
+      try {
+        unlinkSync(full);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 
 
 async updateAcademic(studentId: string, dto: UpdateStudentAcademicDto) {
