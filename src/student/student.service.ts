@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AddGuardianDto } from './dto/create-student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { UpdateStudentAcademicDto, UpdateStudentProfileDto } from './dto/update-student.dto';
 
 @Injectable()
 export class StudentService {
@@ -36,4 +37,41 @@ export class StudentService {
     },
   });
 }
+
+
+ async updateProfile(studentId: string, dto: UpdateStudentProfileDto) {
+  const student = await this.prisma.student.findUnique({
+    where: { id: studentId },
+  });
+
+  if (!student) throw new NotFoundException('Student not found');
+
+  return this.prisma.student.update({
+    where: { id: studentId },
+    data: {
+      ...dto,
+      dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+    },
+  });
+}
+
+
+async updateAcademic(studentId: string, dto: UpdateStudentAcademicDto) {
+  const student = await this.prisma.student.findUnique({
+    where: { id: studentId },
+  });
+
+  if (!student) throw new NotFoundException('Student not found');
+
+  return this.prisma.student.update({
+    where: { id: studentId },
+    data: {
+      programId: dto.programId,
+      batchId: dto.batchId,
+      currentSemesterId: dto.currentSemesterId,
+      status: dto.status as any,
+    },
+  });
+}
+
 }

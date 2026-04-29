@@ -12,7 +12,7 @@ import {
 import { JwtAuthGuard } from '../common/guards/Jwt auth.guard';
 import { RolesGuard } from '../common/guards/roles.gaurds';
 import { Roles } from '../common/guards/roles.decorator';
-// import { Role } from '../common/types';
+import { Role } from '../common/types';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from 'src/common/guards/permissions.decorator';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
@@ -26,6 +26,7 @@ export class AcademicController {
   constructor(private readonly academicService: AcademicService) {}
 
   @Post('departments')
+  @Roles(Role.ADMIN)
   @ModuleName('Academic')
   @Permissions("department.create")
   @ApiOperation({ summary: 'Create department (Admin only)' })
@@ -41,8 +42,8 @@ export class AcademicController {
   }
 
   @Post('programs')
+  @Roles(Role.ADMIN)
   @ModuleName('Academic')
-  // @Roles('ADMIN')
   @Permissions("programs.create")
   @ApiOperation({ summary: 'Create program under department (Admin only)' })
   @ApiBody({ type: CreateProgramDto })
@@ -57,9 +58,9 @@ export class AcademicController {
   }
 
   @Post('courses')
+  @Roles(Role.ADMIN)
   @ModuleName('Academic')
   @Permissions("course.create")
-  // @Roles('ADMIN')
   @ApiOperation({ summary: 'Create course (Admin only)' })
   @ApiBody({ type: CreateCourseDto })
   createCourse(@Body() dto: CreateCourseDto) {
@@ -73,6 +74,7 @@ export class AcademicController {
   }
 
   @Post('semesters')
+  @Roles(Role.ADMIN)
   @ModuleName('Academic')
   @Permissions("semester.create")
   // @Roles('ADMIN')
@@ -89,9 +91,9 @@ export class AcademicController {
   }
 
   @Post('sections')
+  @Roles(Role.ADMIN)
   @ModuleName('Academic')
   @Permissions("section.create")
-  // @Roles('ADMIN', 'TEACHER')
   @ApiOperation({ summary: 'Create section (Admin/Faculty)' })
   @ApiBody({ type: CreateSectionDto })
   createSection(@Body() dto: CreateSectionDto) {
@@ -105,8 +107,9 @@ export class AcademicController {
   }
 
   @Post('program-courses')
-// @ModuleName('Academic')
-// @Permissions("programcourse.create")
+  @Roles(Role.ADMIN)
+@ModuleName('Academic')
+@Permissions("programcourse.create")
 @ApiOperation({ summary: 'Assign course to program' })
 createProgramCourse(@Body() dto: CreateProgramCourseDto) {
   return this.academicService.createProgramCourse(dto);
@@ -119,8 +122,9 @@ getProgramCourses() {
 }
 
 @Post('semester-courses')
-// @ModuleName('Academic')
-// @Permissions("semestercourse.create")
+@Roles(Role.ADMIN)
+@ModuleName('Academic')
+@Permissions("semestercourse.create")
 @ApiOperation({ summary: 'Assign course to semester' })
 createSemesterCourse(@Body() dto: CreateSemesterCourseDto) {
   return this.academicService.createSemesterCourse(dto);

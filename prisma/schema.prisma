@@ -206,6 +206,8 @@ model Student {
   lastName  String  @map("last_name")
   regNo     String  @unique @map("reg_no")
 
+  status StudentStatus @default(ACTIVE)
+
   profilePhoto String?
   phone        String?
   email        String? // optional (already in User)
@@ -542,4 +544,11 @@ enum AdmissionStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  SUSPENDED
 }
