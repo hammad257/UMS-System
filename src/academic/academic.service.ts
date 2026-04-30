@@ -7,8 +7,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateCourseDto,
   CreateDepartmentDto,
+  CreateProgramCourseDto,
   CreateProgramDto,
   CreateSectionDto,
+  CreateSemesterCourseDto,
   CreateSemesterDto,
 } from './dto/academic.dto';
 
@@ -159,6 +161,85 @@ async getAllSemesters() {
   });
 }
 
+async createProgramCourse(dto: CreateProgramCourseDto) {
+  const [program, course] = await this.prisma.$transaction([
+    this.prisma.program.findUnique({ where: { id: dto.programId } }),
+    this.prisma.course.findUnique({ where: { id: dto.courseId } }),
+  ]);
+
+  if (!program) throw new NotFoundException('Program not found');
+  if (!course) throw new NotFoundException('Course not found');
+
+  const exists = await this.prisma.programCourse.findFirst({
+    where: {
+      programId: dto.programId,
+      courseId: dto.courseId,
+    },
+  });
+
+  if (exists) {
+    throw new ConflictException('Course already assigned to program');
+  }
+
+  const data = await this.prisma.programCourse.create({
+    data: dto,
+  });
+
+  return { message: 'Course assigned to program', data };
+}
+
+async getProgramCourses() {
+  const data = await this.prisma.programCourse.findMany({
+    include: {
+      program: { select: { id: true, name: true } },
+      course: { select: { id: true, title: true, code: true } },
+    },
+  });
+
+  return { message: 'Program courses fetched', data };
+}
+
+async createSemesterCourse(dto: CreateSemesterCourseDto) {
+  const [semester, course, program] = await this.prisma.$transaction([
+    this.prisma.semester.findUnique({ where: { id: dto.semesterId } }),
+    this.prisma.course.findUnique({ where: { id: dto.courseId } }),
+    this.prisma.program.findUnique({ where: { id: dto.programId } }),
+  ]);
+
+  if (!semester) throw new NotFoundException('Semester not found');
+  if (!course) throw new NotFoundException('Course not found');
+  if (!program) throw new NotFoundException('Program not found');
+
+  const exists = await this.prisma.semesterCourse.findFirst({
+    where: {
+      semesterId: dto.semesterId,
+      courseId: dto.courseId,
+    },
+  });
+
+  if (exists) {
+    throw new ConflictException('Course already assigned to semester');
+  }
+
+  const data = await this.prisma.semesterCourse.create({
+    data: dto,
+  });
+
+  return { message: 'Course assigned to semester', data };
+}
+
+async getSemesterCourses() {
+  const data = await this.prisma.semesterCourse.findMany({
+    include: {
+      semester: { select: { id: true, name: true } },
+      course: { select: { id: true, title: true, code: true } },
+      program: { select: { id: true, name: true } },
+    },
+  });
+
+  return { message: 'Semester courses fetched', data };
+}
+
   // async getSemesters() {
   //   const semesters = await this.prisma.semester.findMany({
   //     include: { _count: { select: { sections: true } } },
@@ -171,7 +252,7 @@ async getAllSemesters() {
     const [course, semester, faculty] = await this.prisma.$transaction([
       this.prisma.course.findUnique({
         where: { id: dto.courseId },
-        select: { id: true },
+        select: { id: true, departmentId: true },
       }),
       this.prisma.semester.findUnique({
         where: { id: dto.semesterId },
@@ -179,13 +260,22 @@ async getAllSemesters() {
       }),
       this.prisma.faculty.findUnique({
         where: { id: dto.facultyId },
-        select: { id: true },
+        select: { id: true, departmentId: true },
       }),
     ]);
 
     if (!course) throw new NotFoundException('Course not found');
     if (!semester) throw new NotFoundException('Semester not found');
     if (!faculty) throw new NotFoundException('Faculty profile not found');
+
+    // 🔥 NEW: ensure faculty belongs to same department as course
+  if (faculty.departmentId && course.departmentId) {
+    if (faculty.departmentId !== course.departmentId) {
+      throw new ConflictException(
+        'Faculty does not belong to the same department as course',
+      );
+    }
+  }
 
     const duplicate = await this.prisma.section.findFirst({
       where: {
@@ -213,16 +303,47 @@ async getAllSemesters() {
   }
 
   async getSections() {
-    const sections = await this.prisma.section.findMany({
-      include: {
-        course: { select: { id: true, code: true, title: true } },
-        semester: { select: { id: true, name: true, isActive: true } },
-        faculty: {
-          select: { id: true, empId: true, firstName: true, lastName: true },
+  const sections = await this.prisma.section.findMany({
+    include: {
+      course: {
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          creditHours: true,
         },
       },
-      orderBy: { createdAt: 'desc' },
-    });
-    return { message: 'Sections fetched', data: sections };
-  }
+      semester: {
+        select: {
+          id: true,
+          name: true,
+          academicYear: true,
+          isActive: true,
+        },
+      },
+      faculty: {
+        select: {
+          id: true,
+          empId: true,
+          firstName: true,
+          lastName: true,
+          designation: true,
+        },
+      },
+
+      // 🔥 future-ready for enrollment
+      _count: {
+        select: {
+          enrollments: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return {
+    message: 'Sections fetched successfully',
+    data: sections,
+  };
+}
 }

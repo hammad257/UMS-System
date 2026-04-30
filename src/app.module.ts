@@ -17,6 +17,9 @@ import { CampusModule } from './campus/campus.module';
 import { AcademicFacultyModule } from './faculty/faculty.module';
 import { BatchModule } from './batch/batch.module';
 import { MediaModule } from './media/media.module';
+import { AdmissionModule } from './admission/admission.module';
+import { GuardianModule } from './gaurdian/gaurdian.module';
+import { StudentModule } from './student/student.module';
 
 @Module({
   imports: [
@@ -35,6 +38,9 @@ import { MediaModule } from './media/media.module';
     AcademicFacultyModule,
     BatchModule,
     MediaModule,
+    // AdmissionModule,
+    GuardianModule,
+    StudentModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },

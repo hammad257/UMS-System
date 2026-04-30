@@ -1,8 +1,8 @@
 // Mirror of Prisma Role enum — kept in sync with prisma/schema.prisma
 export enum Role {
   STUDENT = 'STUDENT',
-  FACULTY = 'FACULTY',
-  ADMIN = 'ADMIN',
+  FACULTY = 'TEACHER',
+  ADMIN = 'SUPER ADMIN',
   STAFF = 'STAFF',
   SECURITY = 'SECURITY',
 }
