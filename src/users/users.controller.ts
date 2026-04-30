@@ -14,9 +14,12 @@ import { RolesGuard } from '../common/guards/roles.gaurds';
 import { Roles, CurrentUser } from '../common/guards/roles.decorator';
 import { Role } from '../common/types';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ModuleName } from 'src/common/guards/permissions.module.decorator';
+import { Permissions } from 'src/common/guards/permissions.decorator';
+import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 
 // All routes under /users require a valid JWT
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('users')
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -33,6 +36,7 @@ export class UsersController {
   // ─── GET /users/students ──────────────────────────────────────────────────────
   // Only FACULTY and ADMIN can list all students
   @Get('students')
+   @Roles(Role.ADMIN)
   // @Roles('FACULTY', 'SUPER_ADMIN')
   getAllStudents(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
@@ -44,7 +48,7 @@ export class UsersController {
   // ─── GET /users/faculty ───────────────────────────────────────────────────────
   // Only ADMIN can list all faculty
   @Get('faculty')
-  // @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN)
   getAllFaculty(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -61,14 +65,13 @@ export class UsersController {
 
   // ─── GET /users/faculty/:id ───────────────────────────────────────────────────
   @Get('faculty/:id')
-  // @Roles(Role.ADMIN)
   getFacultyById(@Param('id') id: string) {
     return this.usersService.getFacultyById(id);
   }
 
   // ─── PATCH /users/:id/deactivate ─────────────────────────────────────────────
   @Patch(':id/deactivate')
-  // @Roles(Role.ADMIN)
+   @Roles(Role.ADMIN)
   deactivateUser(@Param('id') id: string) {
     return this.usersService.deactivateUser(id);
   }
