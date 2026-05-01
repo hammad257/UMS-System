@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   UseGuards,
@@ -13,11 +14,11 @@ import {
   // RegisterStudentDto,
   // RegisterFacultyDto,
   LoginDto,
+  RefreshDto,
   RegisterUserDto,
 } from './dto/auth.dto';
 import {
   JwtAuthGuard,
-  JwtRefreshGuard,
 } from '../common/guards/Jwt auth.guard'; // ✅ FIXED
 import { Request } from 'express';
 import { AuthUser } from '../common/types';
@@ -29,10 +30,6 @@ import {
 } from '@nestjs/swagger';
 
 type AuthenticatedRequest = Request & { user: AuthUser };
-type RefreshRequest = Request & {
-  user: AuthUser & { refreshToken: string };
-};
-
 @Controller('auth')
 @ApiTags('Auth')
 export class AuthController {
@@ -62,15 +59,18 @@ register(@Body() dto: RegisterUserDto) {
     return this.authService.login(dto);
   }
 
-  @UseGuards(JwtRefreshGuard)
   @Post('refresh')
-  @ApiBearerAuth()
-  refresh(@Req() req: RefreshRequest) {
-    return this.authService.refreshTokens(
-      req.user.id,
-      req.user.refreshToken,
-    );
+  @HttpCode(HttpStatus.OK)
+  refresh(@Body() dto: RefreshDto) {
+    return this.authService.refreshTokens(dto.refreshToken);
   }
+
+  // @UseGuards(JwtAuthGuard)
+  // @Get('me')
+  // @ApiBearerAuth()
+  // me(@Req() req: AuthenticatedRequest) {
+  //   return this.authService.me(req.user.id);
+  // }
 
   @UseGuards(JwtAuthGuard)
   @Post('logout')

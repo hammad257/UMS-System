@@ -4,6 +4,7 @@ import { Strategy, StrategyOptionsWithRequest } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
+import { createHash } from 'crypto';
 
 // ✅ helper function (you were missing this)
 const extractRefreshToken = (req: Request): string | null => {
@@ -40,8 +41,13 @@ export class JwtRefreshStrategy extends PassportStrategy(
       throw new UnauthorizedException('Refresh token not provided');
     }
 
-    const storedToken = await this.prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
+    const refreshTokenHash = createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
+    const storedToken = await this.prisma.refreshToken.findFirst({
+      where: {
+        OR: [{ token: refreshTokenHash }, { token: refreshToken }],
+      },
       include: {
         user: {
           include: {

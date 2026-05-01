@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { CreatePermissionDto } from './dto/create-permission.dto';
@@ -9,9 +14,19 @@ export class AdminService {
 
   // ─── ROLES ─────────────────────────────────────────────
   async createRole(dto: CreateRoleDto) {
-    return this.prisma.role.create({
-      data: dto,
-    });
+    try {
+      return await this.prisma.role.create({
+        data: dto,
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException('A role with this name already exists');
+      }
+      throw e;
+    }
   }
 
   async getRoles() {
@@ -22,9 +37,21 @@ export class AdminService {
 
   // ─── PERMISSIONS ───────────────────────────────────────
   async createPermission(dto: CreatePermissionDto) {
-    return this.prisma.permission.create({
-      data: dto,
-    });
+    try {
+      return await this.prisma.permission.create({
+        data: dto,
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'A permission with this name already exists',
+        );
+      }
+      throw e;
+    }
   }
 
   async getPermissions() {

@@ -16,15 +16,15 @@ export class CampusController {
   constructor(private readonly campusService: CampusService) {}
 
   @Post()
-  @ModuleName('Campus')
-  @Permissions('campus.create')
+  // @ModuleName('Campus')
+  // @Permissions('campus.create')
   create(@Body() dto: CreateCampusDto) {
     return this.campusService.create(dto);
   }
 
   @Get()
-  @ModuleName('Campus')
-  @Permissions('campus.view')
+  // @ModuleName('Campus')
+  // @Permissions('campus.view')
   findAll() {
     return this.campusService.findAll();
   }

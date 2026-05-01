@@ -346,4 +346,49 @@ async getSemesterCourses() {
     data: sections,
   };
 }
+
+  async getHierarchy() {
+    const campuses = await this.prisma.campus.findMany({
+      include: {
+        faculties: {
+          include: {
+            departments: {
+              include: {
+                programs: {
+                  include: {
+                    _count: { select: { batches: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const data = campuses.map((campus) => ({
+      id: campus.id,
+      code: campus.code,
+      name: campus.name,
+      faculties: campus.faculties.map((faculty) => ({
+        id: faculty.id,
+        code: faculty.code,
+        name: faculty.name,
+        departments: faculty.departments.map((department) => ({
+          id: department.id,
+          code: department.code,
+          name: department.name,
+          programs: department.programs.map((program) => ({
+            id: program.id,
+            code: program.code,
+            name: program.name,
+            batchCount: program._count.batches,
+          })),
+        })),
+      })),
+    }));
+
+    return { message: 'Academic hierarchy fetched', data: { campuses: data } };
+  }
 }

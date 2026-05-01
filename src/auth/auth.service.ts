@@ -1,13 +1,16 @@
 import {
+  BadRequestException,
   Injectable,
   ConflictException,
+  ForbiddenException,
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
+import * as argon2 from 'argon2';
 import {
   // RegisterStudentDto,
   // RegisterFacultyDto,
@@ -15,8 +18,6 @@ import {
   RegisterUserDto,
 } from './dto/auth.dto';
 import { Student, Faculty } from '@prisma/client';
-
-const SALT_ROUNDS = 12;
 
 @Injectable()
 export class AuthService {
@@ -28,10 +29,19 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
+  private hashRefreshToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
   async register(dto: RegisterUserDto) {
   await this.checkEmailUnique(dto.email);
 
-  const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+  const passwordHash = await argon2.hash(dto.password, {
+    type: argon2.argon2id,
+    memoryCost: 19456,
+    timeCost: 2,
+    parallelism: 1,
+  });
 
   const isStudent = dto.type === 'STUDENT';
   const isFaculty = dto.type === 'FACULTY';
@@ -39,13 +49,13 @@ export class AuthService {
   // 🔥 VALIDATION GUARD (important)
   if (isStudent) {
     if (!dto.firstName || !dto.lastName || !dto.regNo || !dto.batch) {
-      throw new Error('Missing student fields');
+      throw new BadRequestException('Missing student fields');
     }
   }
 
   if (isFaculty) {
     if (!dto.firstName || !dto.lastName || !dto.empId || !dto.designation) {
-      throw new Error('Missing faculty fields');
+      throw new BadRequestException('Missing faculty fields');
     }
   }
 
@@ -159,8 +169,8 @@ export class AuthService {
 
   // ───────────────────────── LOGIN
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: dto.email, mode: 'insensitive' } },
       include: {
         student: true,
         faculty: true,
@@ -180,7 +190,7 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+    const valid = await argon2.verify(user.passwordHash, dto.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
     const roles = user.roles.map((r) => r.role.name);
@@ -204,14 +214,20 @@ export class AuthService {
     permissions: string[],
   ) {
     const payload = { sub: userId, email, roles, permissions };
-
-    const accessToken = await this.jwtService.signAsync(payload);
-    const refreshToken = await this.jwtService.signAsync(payload);
+    const accessToken = await this.jwtService.signAsync(payload as any, {
+      secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m',
+    } as any);
+    const refreshToken = await this.jwtService.signAsync(payload as any, {
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d',
+    } as any);
+    const hashedRefreshToken = this.hashRefreshToken(refreshToken);
 
     await this.prisma.refreshToken.create({
       data: {
         userId,
-        token: refreshToken,
+        token: hashedRefreshToken,
         expiresAt: new Date(Date.now() + 7 * 86400000),
       },
     });
@@ -265,39 +281,91 @@ export class AuthService {
     if (existing) throw new ConflictException('Email exists');
   }
 
-  async refreshTokens(userId: string, refreshToken: string) {
-    await this.prisma.refreshToken.deleteMany({
-      where: { token: refreshToken },
-    });
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+  async refreshTokens(refreshToken: string) {
+    const tokenHash = this.hashRefreshToken(refreshToken);
+    const storedToken = await this.prisma.refreshToken.findFirst({
+      where: {
+        OR: [{ token: tokenHash }, { token: refreshToken }],
+      },
       include: {
-        roles: {
+        user: {
           include: {
-            role: {
+            roles: {
               include: {
-                permissions: { include: { permission: true } },
+                role: {
+                  include: {
+                    permissions: { include: { permission: true } },
+                  },
+                },
               },
             },
           },
         },
       },
     });
+    if (!storedToken || storedToken.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
 
-    const roles = user!.roles.map((r) => r.role.name);
-    const permissions = user!.roles.flatMap((r) =>
+    await this.prisma.refreshToken.delete({
+      where: { id: storedToken.id },
+    });
+
+    const user = storedToken.user;
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Invalid user');
+    }
+
+    const roles = user.roles.map((r) => r.role.name);
+    const permissions = user.roles.flatMap((r) =>
       r.role.permissions.map((p) => p.permission.name),
     );
 
-    return this.generateTokens(userId, user!.email, roles, permissions);
+    return this.generateTokens(user.id, user.email, roles, permissions);
   }
 
   async logout(userId: string, refreshToken?: string) {
+    const hashed = refreshToken ? this.hashRefreshToken(refreshToken) : undefined;
     await this.prisma.refreshToken.deleteMany({
-      where: refreshToken ? { token: refreshToken } : { userId },
+      where: hashed
+        ? { userId, OR: [{ token: hashed }, { token: refreshToken! }] }
+        : { userId },
     });
 
     return { message: 'Logged out' };
+  }
+
+  async me(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roles: {
+          include: {
+            role: {
+              include: { permissions: { include: { permission: true } } },
+            },
+          },
+        },
+      },
+    });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+    const roles = user.roles.map((r) => r.role.name);
+    const permissions = user.roles.flatMap((r) =>
+      r.role.permissions.map((p) => p.permission.name),
+    );
+    return {
+      message: 'Profile fetched',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          roles,
+          permissions,
+          scope: { campusIds: [], departmentIds: [] },
+        },
+      },
+    };
   }
 }

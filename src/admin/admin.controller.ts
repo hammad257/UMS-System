@@ -19,7 +19,7 @@ import { Role } from 'src/common/types';
 import { PermissionScannerService } from 'src/common/rbac/permissions-scanner.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPER ADMIN')
+// @Roles(Role.ADMIN, 'SUPER ADMIN')
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService,

@@ -17,22 +17,22 @@ export class AcademicFacultyController {
   constructor(private readonly service: AcademicFacultyService) {}
 
   @Post()
-  @ModuleName('AcademicFaculty')
-  @Permissions('academicFaculty.create')
+  // @ModuleName('AcademicFaculty')
+  // @Permissions('academicFaculty.create')
   create(@Body() dto: CreateAcademicFacultyDto) {
     return this.service.create(dto);
   }
 
   @Get()
-  @ModuleName('AcademicFaculty')
-  @Permissions('academicFaculty.view')
+  // @ModuleName('AcademicFaculty')
+  // @Permissions('academicFaculty.view')
   findAll() {
     return this.service.findAll();
   }
 
   @Get(':id')
-   @ModuleName('AcademicFaculty')
-  @Permissions('academicFaculty.view')
+  //  @ModuleName('AcademicFaculty')
+  // @Permissions('academicFaculty.view')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }

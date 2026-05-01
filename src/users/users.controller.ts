@@ -19,7 +19,7 @@ import { Permissions } from 'src/common/guards/permissions.decorator';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 
 // All routes under /users require a valid JWT
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('users')
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -36,7 +36,9 @@ export class UsersController {
   // ─── GET /users/students ──────────────────────────────────────────────────────
   // Only FACULTY and ADMIN can list all students
   @Get('students')
-   @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN)
+  // @ModuleName('Identity')
+  // @Permissions('identity.user.read')
   // @Roles('FACULTY', 'SUPER_ADMIN')
   getAllStudents(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
@@ -49,6 +51,8 @@ export class UsersController {
   // Only ADMIN can list all faculty
   @Get('faculty')
   @Roles(Role.ADMIN)
+  // @ModuleName('Identity')
+  // @Permissions('identity.user.read')
   getAllFaculty(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -58,21 +62,34 @@ export class UsersController {
 
   // ─── GET /users/students/:id ──────────────────────────────────────────────────
   @Get('students/:id')
-  // @Roles(Role.FACULTY, Role.ADMIN)
+  @Roles(Role.ADMIN)
+  // @ModuleName('Identity')
+  // @Permissions('identity.user.read')
   getStudentById(@Param('id') id: string) {
     return this.usersService.getStudentById(id);
   }
 
   // ─── GET /users/faculty/:id ───────────────────────────────────────────────────
   @Get('faculty/:id')
+  @Roles(Role.ADMIN)
+  // @ModuleName('Identity')
+  // @Permissions('identity.user.read')
   getFacultyById(@Param('id') id: string) {
     return this.usersService.getFacultyById(id);
   }
 
   // ─── PATCH /users/:id/deactivate ─────────────────────────────────────────────
   @Patch(':id/deactivate')
-   @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN)
+  // @ModuleName('Identity')
+  // @Permissions('identity.user.update')
   deactivateUser(@Param('id') id: string) {
     return this.usersService.deactivateUser(id);
+  }
+
+  @Patch(':id/activate')
+  @Roles(Role.ADMIN)
+  activateUser(@Param('id') id: string) {
+    return this.usersService.activateUser(id);
   }
 }

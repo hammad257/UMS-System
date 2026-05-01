@@ -43,8 +43,8 @@ export class AcademicController {
 
   @Post('programs')
   @Roles(Role.ADMIN)
-  @ModuleName('Academic')
-  @Permissions("programs.create")
+  // @ModuleName('Academic')
+  // @Permissions("program.create")
   @ApiOperation({ summary: 'Create program under department (Admin only)' })
   @ApiBody({ type: CreateProgramDto })
   createProgram(@Body() dto: CreateProgramDto) {
@@ -59,8 +59,8 @@ export class AcademicController {
 
   @Post('courses')
   @Roles(Role.ADMIN)
-  @ModuleName('Academic')
-  @Permissions("course.create")
+  // @ModuleName('Academic')
+  // @Permissions("course.create")
   @ApiOperation({ summary: 'Create course (Admin only)' })
   @ApiBody({ type: CreateCourseDto })
   createCourse(@Body() dto: CreateCourseDto) {
@@ -75,8 +75,8 @@ export class AcademicController {
 
   @Post('semesters')
   @Roles(Role.ADMIN)
-  @ModuleName('Academic')
-  @Permissions("semester.create")
+  // @ModuleName('Academic')
+  // @Permissions("semester.create")
   // @Roles('ADMIN')
   @ApiOperation({ summary: 'Create semester (Admin only)' })
   @ApiBody({ type: CreateSemesterDto })
@@ -92,8 +92,8 @@ export class AcademicController {
 
   @Post('sections')
   @Roles(Role.ADMIN)
-  @ModuleName('Academic')
-  @Permissions("section.create")
+  // @ModuleName('Academic')
+  // @Permissions("section.create")
   @ApiOperation({ summary: 'Create section (Admin/Faculty)' })
   @ApiBody({ type: CreateSectionDto })
   createSection(@Body() dto: CreateSectionDto) {
@@ -108,8 +108,8 @@ export class AcademicController {
 
   @Post('program-courses')
   @Roles(Role.ADMIN)
-@ModuleName('Academic')
-@Permissions("programcourse.create")
+// @ModuleName('Academic')
+// @Permissions("program-course.create")
 @ApiOperation({ summary: 'Assign course to program' })
 createProgramCourse(@Body() dto: CreateProgramCourseDto) {
   return this.academicService.createProgramCourse(dto);
@@ -123,11 +123,17 @@ getProgramCourses() {
 
 @Post('semester-courses')
 @Roles(Role.ADMIN)
-@ModuleName('Academic')
-@Permissions("semestercourse.create")
+// @ModuleName('Academic')
+// @Permissions("semester-course.create")
 @ApiOperation({ summary: 'Assign course to semester' })
 createSemesterCourse(@Body() dto: CreateSemesterCourseDto) {
   return this.academicService.createSemesterCourse(dto);
+}
+
+@Get('hierarchy')
+@ApiOperation({ summary: 'Get academic hierarchy tree' })
+getHierarchy() {
+  return this.academicService.getHierarchy();
 }
 
 @Get('semester-courses')
