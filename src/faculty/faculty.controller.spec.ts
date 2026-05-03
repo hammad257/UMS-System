@@ -1,17 +1,26 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { FacultyController } from './faculty.controller';
-import { FacultyService } from './faculty.service';
+import { AcademicFacultyController } from './faculty.controller';
+import { AcademicFacultyService } from './faculty.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-describe('FacultyController', () => {
-  let controller: FacultyController;
+describe('AcademicFacultyController', () => {
+  let controller: AcademicFacultyController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [FacultyController],
-      providers: [FacultyService],
-    }).compile();
+      controllers: [AcademicFacultyController],
+      providers: [
+        AcademicFacultyService,
+        { provide: PrismaService, useValue: {} },
+      ],
+    })
+      .overrideGuard((await import('@nestjs/passport')).AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .compile();
 
-    controller = module.get<FacultyController>(FacultyController);
+    controller = module.get<AcademicFacultyController>(
+      AcademicFacultyController,
+    );
   });
 
   it('should be defined', () => {
