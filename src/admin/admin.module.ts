@@ -1,18 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { RbacModule } from 'src/common/rbac/rbac.module';
-import { PermissionScannerService } from 'src/common/rbac/permissions-scanner.service';
-import { MetadataScanner } from '@nestjs/core';
+import { AuthModule } from '../auth/auth.module';
+import { RbacModule } from '../common/rbac/rbac.module';
 
 @Module({
+  imports: [AuthModule, RbacModule],
   controllers: [AdminController],
-  providers: [AdminService, PrismaService,
-    PermissionScannerService,
-    MetadataScanner
-  ],
-  imports: [RbacModule],
-
+  providers: [AdminService],
 })
-export class AdminModule { }
+export class AdminModule {}

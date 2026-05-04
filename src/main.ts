@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import { join } from 'path';
 import * as express from 'express';
+import rateLimit from 'express-rate-limit';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -31,6 +32,18 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'x-refresh-token'],
     credentials: true,
   });
+
+  // Auth hardening: login brute-force protection (5 requests / minute / IP)
+  app.use(
+    '/api/v1/auth/login',
+    rateLimit({
+      windowMs: 60_000,
+      max: 5,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: 'Too many login attempts. Try again later.',
+    }),
+  );
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('UMS API')

@@ -1,12 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsString } from 'class-validator';
+import { ArrayMinSize, IsArray, IsUUID } from 'class-validator';
 
 export class AssignRoleDto {
   @ApiProperty({
-    example: 'clx123roleId',
-    description: 'Role ID from database',
-  })  
+    type: [String],
+    description: 'Full replacement set of role IDs to assign to the user.',
+  })
   @IsArray()
-  @IsString({ each: true })
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
   roleIds!: string[];
 }

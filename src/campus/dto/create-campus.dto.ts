@@ -1,24 +1,51 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsString } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { EntityStatus } from '@prisma/client';
 
 export class CreateCampusDto {
-    @ApiProperty({ example: 'Cant' })
-    @IsString()
-    @IsNotEmpty()
-    name!: string;
+  @ApiProperty({ example: 'MC' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  code!: string;
 
-    @ApiProperty({ example: '01' })
-    @IsString()
-    @IsNotEmpty()
-    code!: string;
+  @ApiProperty({ example: 'Main Campus' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name!: string;
 
-    @ApiProperty({ example: 'Link Road' })
-    @IsString()
-    @IsNotEmpty()
-    address?: string;
+  @ApiPropertyOptional({ example: 'Lahore' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  city?: string;
 
-    @ApiProperty({ example: 'Lahore' })
-    @IsString()
-    @IsNotEmpty()
-    city?: string;
+  @ApiPropertyOptional({ example: 'Link Road' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  address?: string;
+
+  @ApiPropertyOptional({ example: '+92-300-1234567' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'main@uni.edu' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ enum: EntityStatus })
+  @IsOptional()
+  @IsEnum(EntityStatus)
+  status?: EntityStatus;
 }

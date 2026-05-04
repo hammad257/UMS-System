@@ -1,21 +1,25 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-jwt';
-import { StrategyOptionsWithoutRequest } from 'passport-jwt';
+import { Strategy, StrategyOptionsWithoutRequest } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { AuthUser } from '../../common/types';
 
 export interface JwtPayload {
-  sub: string; // user id
+  sub: string;
   email: string;
-  role: string;
+  roles: string[];
+  permissions: string[];
+  scope: { campusIds: string[]; departmentIds: string[] };
+  /** Session stamp — must match `User.tokenVersion` or the access token is rejected. */
+  tv?: number;
+  iat?: number;
+  exp?: number;
 }
 
 const extractAccessToken = (req: { headers?: { authorization?: string } }) => {
   const authHeader = req.headers?.authorization?.trim();
-  if (!authHeader) {
-    return null;
-  }
+  if (!authHeader) return null;
 
   if (!authHeader.toLowerCase().startsWith('bearer ')) {
     return authHeader;
@@ -25,7 +29,6 @@ const extractAccessToken = (req: { headers?: { authorization?: string } }) => {
   if (token.toLowerCase().startsWith('bearer ')) {
     return token.slice(7).trim();
   }
-
   return token;
 };
 
@@ -36,7 +39,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     private readonly prisma: PrismaService,
   ) {
     const options: StrategyOptionsWithoutRequest = {
-      // Extract JWT from Authorization: Bearer <token> header
       jwtFromRequest: extractAccessToken,
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('JWT_ACCESS_SECRET') ?? '',
@@ -44,44 +46,39 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super(options);
   }
 
- async validate(payload: JwtPayload) {
-  const user = await this.prisma.user.findUnique({
-    where: { id: payload.sub },
-    include: {
-      roles: {
-        include: {
-          role: {
-            include: {
-              permissions: {
-                include: {
-                  permission: true,
-                },
-              },
-            },
-          },
-        },
+  async validate(payload: JwtPayload): Promise<AuthUser> {
+    // Trust the JWT payload for permission/scope claims (Module 2 spec — no DB
+    // hit per request) but still verify the user is active and not deleted.
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        status: true,
+        deletedAt: true,
+        tokenVersion: true,
       },
-    },
-  });
+    });
 
-  // ✅ FIX: handle null
-  if (!user) {
-    throw new UnauthorizedException('User not found');
+    if (!user || user.deletedAt || user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    const claimedTv = payload.tv ?? 0;
+    if (claimedTv !== user.tokenVersion) {
+      throw new UnauthorizedException('Session ended — please sign in again');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      roles: payload.roles ?? [],
+      permissions: payload.permissions ?? [],
+      scope: payload.scope ?? { campusIds: [], departmentIds: [] },
+    };
   }
-
-  // ✅ extract roles
-  const roles = user.roles.map((r) => r.role.name);
-
-  // ✅ extract permissions
-  const permissions = user.roles.flatMap((r) =>
-    r.role.permissions.map((p) => p.permission.name),
-  );
-
-  return {
-    id: user.id,
-    email: user.email,
-    roles,
-    permissions,
-  };
-}
 }

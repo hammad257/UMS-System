@@ -1,17 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { GaurdianController } from './gaurdian.controller';
-import { GaurdianService } from './gaurdian.service';
+import { GuardianController } from './gaurdian.controller';
+import { GuardianService } from './gaurdian.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-describe('GaurdianController', () => {
-  let controller: GaurdianController;
+describe('GuardianController', () => {
+  let controller: GuardianController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [GaurdianController],
-      providers: [GaurdianService],
+      controllers: [GuardianController],
+      providers: [GuardianService, { provide: PrismaService, useValue: {} }],
     }).compile();
 
-    controller = module.get<GaurdianController>(GaurdianController);
+    controller = module.get<GuardianController>(GuardianController);
   });
 
   it('should be defined', () => {

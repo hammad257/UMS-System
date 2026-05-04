@@ -1,18 +1,24 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, StrategyOptionsWithRequest } from 'passport-jwt';
+import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
+import { createHash } from 'crypto';
 
-// ✅ helper function (you were missing this)
 const extractRefreshToken = (req: Request): string | null => {
-  const authHeader = req.headers?.authorization;
-  if (!authHeader) return null;
+  const fromBody =
+    (req.body as { refreshToken?: string } | undefined)?.refreshToken ?? null;
+  if (fromBody) return fromBody;
 
-  if (!authHeader.startsWith('Bearer ')) return null;
+  const header = req.headers?.['x-refresh-token'];
+  if (typeof header === 'string' && header.length > 0) return header;
 
-  return authHeader.replace('Bearer', '').trim();
+  const auth = req.headers?.authorization;
+  if (typeof auth === 'string' && auth.toLowerCase().startsWith('bearer ')) {
+    return auth.slice(7).trim();
+  }
+  return null;
 };
 
 @Injectable()
@@ -26,67 +32,42 @@ export class JwtRefreshStrategy extends PassportStrategy(
   ) {
     super({
       jwtFromRequest: extractRefreshToken,
-      ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_REFRESH_SECRET'),
+      ignoreExpiration: true, // we manage expiry from the DB row
+      secretOrKey:
+        configService.get<string>('JWT_REFRESH_SECRET') ??
+        configService.get<string>('JWT_ACCESS_SECRET') ??
+        'unused-refresh-tokens-are-opaque',
       passReqToCallback: true,
-    }as any);
+    } as never);
   }
 
-  // ✅ MUST be inside class
   async validate(req: Request) {
     const refreshToken = extractRefreshToken(req);
-
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token not provided');
     }
 
-    const storedToken = await this.prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
-      include: {
-        user: {
-          include: {
-            roles: {
-              include: {
-                role: {
-                  include: {
-                    permissions: {
-                      include: {
-                        permission: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+    const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
+
+    const stored = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
     });
 
-    // ✅ fix undefined issue
-    if (!storedToken || storedToken.expiresAt < new Date()) {
+    if (!stored || stored.expiresAt < new Date() || stored.revokedAt) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    const user = storedToken.user;
-
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+    const user = stored.user;
+    if (!user || user.deletedAt || user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('Account is not active');
     }
-
-    // ✅ extract roles
-    const roles = user.roles.map((r) => r.role.name);
-
-    // ✅ extract permissions
-    const permissions = user.roles.flatMap((r) =>
-      r.role.permissions.map((p) => p.permission.name),
-    );
 
     return {
       id: user.id,
       email: user.email,
-      roles,
-      permissions,
+      tokenId: stored.id,
+      tokenHash,
       refreshToken,
     };
   }

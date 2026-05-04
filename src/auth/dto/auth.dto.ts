@@ -4,23 +4,48 @@ import {
   IsOptional,
   IsString,
   MinLength,
-  IsDateString,
+  MaxLength,
   IsIn,
+  IsArray,
+  ArrayMinSize,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-// ─────────────────────────────────────────────
-// RBAC ROLES (STATIC LIST ONLY FOR VALIDATION)
-// (DB still holds real roles)
-// ─────────────────────────────────────────────
-export const NON_STUDENT_ROLES = [
-  'FACULTY',
-  'ADMIN',
-  'STAFF',
-  'SECURITY',
-] as const;
+// -----------------------------------------------------------------------------
+// Module 1 — Login + Refresh DTOs
+// -----------------------------------------------------------------------------
 
-export type NonStudentRole = (typeof NON_STUDENT_ROLES)[number];
+export class LoginDto {
+  @ApiProperty({ example: 'admin@uni.edu' })
+  @IsEmail({}, { message: 'Please provide a valid email' })
+  email!: string;
+
+  @ApiProperty({ example: 'ChangeMe!2026' })
+  @IsString()
+  @MinLength(8)
+  password!: string;
+}
+
+export class RefreshDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  refreshToken!: string;
+}
+
+export class LogoutDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  refreshToken?: string;
+}
+
+// -----------------------------------------------------------------------------
+// Optional self-service register (kept for current frontend compatibility)
+// In the target architecture (Module 2), users are created via POST /users by
+// an admin. We keep this endpoint as a thin wrapper that creates a User row
+// (and an optional Student/Faculty profile) in PENDING state.
+// -----------------------------------------------------------------------------
 
 export class RegisterUserDto {
   @ApiProperty()
@@ -32,23 +57,22 @@ export class RegisterUserDto {
   @MinLength(8)
   password!: string;
 
-  // profile type decides table
-  @ApiProperty({ example: 'STUDENT' })
+  @ApiProperty({ example: 'Maria' })
   @IsString()
-  @IsNotEmpty()
-  type!: 'STUDENT' | 'FACULTY';
+  @MaxLength(50)
+  firstName!: string;
 
-  // STUDENT fields
-  @ApiPropertyOptional()
+  @ApiProperty({ example: 'Khan' })
+  @IsString()
+  @MaxLength(50)
+  lastName!: string;
+
+  @ApiPropertyOptional({ example: 'STUDENT', enum: ['STUDENT', 'FACULTY'] })
   @IsOptional()
-  @IsString()
-  firstName?: string;
+  @IsIn(['STUDENT', 'FACULTY'])
+  type?: 'STUDENT' | 'FACULTY';
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  lastName?: string;
-
+  // STUDENT-only
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -59,7 +83,7 @@ export class RegisterUserDto {
   @IsString()
   batch?: string;
 
-  // FACULTY fields
+  // FACULTY-only
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -69,18 +93,14 @@ export class RegisterUserDto {
   @IsOptional()
   @IsString()
   designation?: string;
-}
 
-// ─────────────────────────────────────────────
-// LOGIN DTO
-// ─────────────────────────────────────────────
-export class LoginDto {
-  @ApiProperty({ example: 'student1@ums.edu.pk' })
-  @IsEmail({}, { message: 'Please provide a valid email' })
-  email!: string;
-
-  @ApiProperty({ example: 'StrongPassword123!' })
-  @IsString()
-  @IsNotEmpty()
-  password!: string;
+  @ApiPropertyOptional({
+    description: 'Optional list of role codes (e.g. ["STUDENT"]).',
+    example: ['STUDENT'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  roleCodes?: string[];
 }

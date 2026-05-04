@@ -1,19 +1,44 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsString } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
+import { EntityStatus } from '@prisma/client';
 
 export class CreateAcademicFacultyDto {
-    @ApiProperty({ example: 'BS Faculty' })
-    @IsString()
-    @IsNotEmpty()
-    name!: string;
+  @ApiProperty({ example: 'FOC' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  code!: string;
 
-    @ApiProperty({ example: '091' })
-    @IsString()
-    @IsNotEmpty()
-    code!: string;
+  @ApiProperty({ example: 'Faculty of Computing' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name!: string;
 
-    @ApiProperty({ example: '12091' })
-    @IsString()
-    @IsNotEmpty()
-    campusId!: string;
+  @ApiProperty({ example: 'campus-uuid' })
+  @IsUUID('4')
+  campusId!: string;
+
+  @ApiPropertyOptional({ example: 'Dr. Ahmed' })
+  @IsOptional()
+  @IsString()
+  dean?: string;
+
+  @ApiPropertyOptional({ example: 'foc@uni.edu' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ enum: EntityStatus })
+  @IsOptional()
+  @IsEnum(EntityStatus)
+  status?: EntityStatus;
 }

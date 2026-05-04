@@ -1,91 +1,104 @@
 import {
-  Controller,
-  Post,
   Body,
-  UseGuards,
+  Controller,
+  Get,
+  Headers,
   HttpCode,
   HttpStatus,
-  Headers,
+  Ip,
+  Post,
   Req,
+  UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import {
-  // RegisterStudentDto,
-  // RegisterFacultyDto,
   LoginDto,
+  LogoutDto,
+  RefreshDto,
   RegisterUserDto,
 } from './dto/auth.dto';
-import {
-  JwtAuthGuard,
-  JwtRefreshGuard,
-} from '../common/guards/Jwt auth.guard'; // ✅ FIXED
-import { Request } from 'express';
-import { AuthUser } from '../common/types';
-import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { Public } from '../common/decorators/public.decorator';
+import { CurrentUser } from '../common/guards/roles.decorator';
+import type { AuthUser } from '../common/types';
 
-type AuthenticatedRequest = Request & { user: AuthUser };
-type RefreshRequest = Request & {
-  user: AuthUser & { refreshToken: string };
-};
-
-@Controller('auth')
 @ApiTags('Auth')
+@Controller('auth')
+@UseGuards(JwtAuthGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // -------------------------------------------------------------------------
+  // POST /auth/register — kept for the existing public sign-up flow.
+  // Module 1 spec only ships login/refresh/logout/me; admin-driven user
+  // creation lives at POST /users in the Identity module.
+  // -------------------------------------------------------------------------
+  @Public()
   @Post('register')
-@HttpCode(HttpStatus.CREATED)
-register(@Body() dto: RegisterUserDto) {
-  return this.authService.register(dto);
-}
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user (PENDING by default)' })
+  register(@Body() dto: RegisterUserDto) {
+    return this.authService.register(dto);
+  }
 
-  // @Post('register/student')
-  // @HttpCode(HttpStatus.CREATED)
-  // registerStudent(@Body() dto: RegisterStudentDto) {
-  //   return this.authService.registerStudent(dto);
-  // }
-
-  // @Post('register/faculty')
-  // @HttpCode(HttpStatus.CREATED)
-  // registerFaculty(@Body() dto: RegisterFacultyDto) {
-  //   return this.authService.registerFaculty(dto);
-  // }
-
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  @ApiOperation({ summary: 'Login with email + password' })
+  login(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent?: string,
+  ) {
+    return this.authService.login(dto, {
+      ipAddress: ip ?? req.ip,
+      userAgent,
+    });
   }
 
-  @UseGuards(JwtRefreshGuard)
+  @Public()
   @Post('refresh')
-  @ApiBearerAuth()
-  refresh(@Req() req: RefreshRequest) {
-    return this.authService.refreshTokens(
-      req.user.id,
-      req.user.refreshToken,
-    );
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Rotate the refresh token (single-use)' })
+  refresh(
+    @Body() dto: RefreshDto,
+    @Req() req: Request,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent?: string,
+  ) {
+    return this.authService.refreshTokens(dto.refreshToken, {
+      ipAddress: ip ?? req.ip,
+      userAgent,
+    });
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get the currently authenticated user' })
+  me(@CurrentUser() user: AuthUser) {
+    return this.authService.me(user.id);
+  }
+
   @Post('logout')
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Logout — revoke the current refresh token' })
   logout(
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser() user: AuthUser,
+    @Body() body: LogoutDto,
     @Headers('x-refresh-token') refreshToken?: string,
   ) {
-    return this.authService.logout(req.user.id, refreshToken);
+    return this.authService.logout(user.id, refreshToken ?? body?.refreshToken);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('logout-all')
-  @ApiBearerAuth()
-  logoutAll(@Req() req: AuthenticatedRequest) {
-    return this.authService.logout(req.user.id);
+  @ApiBearerAuth('access-token')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Logout — revoke every refresh token' })
+  logoutAll(@CurrentUser() user: AuthUser) {
+    return this.authService.logout(user.id);
   }
 }
