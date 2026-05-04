@@ -99,6 +99,7 @@ export class AuthService {
     roles: string[];
     permissions: string[];
     scope: { campusIds: string[]; departmentIds: string[] };
+    tokenVersion: number;
     userAgent?: string;
     ipAddress?: string;
   }): Promise<IssuedTokens> {
@@ -109,6 +110,7 @@ export class AuthService {
         roles: args.roles,
         permissions: args.permissions,
         scope: args.scope,
+        tv: args.tokenVersion,
       } as Record<string, unknown>,
       {
         secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
@@ -254,6 +256,17 @@ export class AuthService {
   ) {
     const user = await this.prisma.user.findFirst({
       where: { email: { equals: dto.email, mode: 'insensitive' } },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        deletedAt: true,
+        status: true,
+        firstName: true,
+        lastName: true,
+        photoUrl: true,
+        tokenVersion: true,
+      },
     });
 
     // Generic message — never leak whether the email exists.
@@ -285,6 +298,7 @@ export class AuthService {
       roles: ctx.roles,
       permissions: ctx.permissions,
       scope: ctx.scope,
+      tokenVersion: user.tokenVersion,
       userAgent: meta.userAgent,
       ipAddress: meta.ipAddress,
     });
@@ -320,10 +334,7 @@ export class AuthService {
 
     // Theft signal: someone is presenting a token we already rotated away.
     if (stored.revokedAt) {
-      await this.prisma.refreshToken.updateMany({
-        where: { userId: stored.userId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+      await this.revokeAllForUsers([stored.userId]);
       this.logger.warn(
         `Refresh-token reuse detected for user=${stored.userId}; revoked all sessions.`,
       );
@@ -345,6 +356,7 @@ export class AuthService {
       roles: ctx.roles,
       permissions: ctx.permissions,
       scope: ctx.scope,
+      tokenVersion: ctx.user.tokenVersion,
       userAgent: meta.userAgent,
       ipAddress: meta.ipAddress,
     });
@@ -380,6 +392,11 @@ export class AuthService {
         data: { revokedAt: new Date() },
       });
     }
+    // Invalidate all access JWTs for this user (including the one used for this request).
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+    });
     return { message: 'Logged out' };
   }
 
@@ -436,11 +453,20 @@ export class AuthService {
    * module when role/permission changes need to bump users to re-login.
    */
   async revokeAllForUsers(userIds: string[]) {
-    if (userIds.length === 0) return;
-    await this.prisma.refreshToken.updateMany({
-      where: { userId: { in: userIds }, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    const unique = [...new Set(userIds)];
+    if (unique.length === 0) return;
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.updateMany({
+        where: { userId: { in: unique }, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+      ...unique.map((id) =>
+        this.prisma.user.update({
+          where: { id },
+          data: { tokenVersion: { increment: 1 } },
+        }),
+      ),
+    ]);
   }
 }
 

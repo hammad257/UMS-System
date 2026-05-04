@@ -11,6 +11,8 @@ export interface JwtPayload {
   roles: string[];
   permissions: string[];
   scope: { campusIds: string[]; departmentIds: string[] };
+  /** Session stamp — must match `User.tokenVersion` or the access token is rejected. */
+  tv?: number;
   iat?: number;
   exp?: number;
 }
@@ -56,11 +58,17 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         lastName: true,
         status: true,
         deletedAt: true,
+        tokenVersion: true,
       },
     });
 
     if (!user || user.deletedAt || user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Unauthorized');
+    }
+
+    const claimedTv = payload.tv ?? 0;
+    if (claimedTv !== user.tokenVersion) {
+      throw new UnauthorizedException('Session ended — please sign in again');
     }
 
     return {

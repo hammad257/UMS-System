@@ -30,6 +30,8 @@ model User {
   status           UserStatus @default(ACTIVE)
   twoFactorEnabled Boolean    @default(false) @map("two_factor_enabled")
   lastLoginAt      DateTime?  @map("last_login_at")
+  /// Incremented on logout / session revoke so access JWTs become invalid immediately.
+  tokenVersion     Int        @default(0) @map("token_version")
 
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
