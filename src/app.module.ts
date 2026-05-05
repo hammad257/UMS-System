@@ -22,6 +22,15 @@ import { TimetableModule } from './timetable/timetable.module';
 import { LeaveRequestModule } from './leave-request/leave-request.module';
 import { MediaModule } from './media/media.module';
 
+// Module 4-10 — new modules
+import { EmployeesModule } from './employees/employees.module';
+import { OfferingsModule } from './offerings/offerings.module';
+import { AttendanceSessionsModule } from './attendance-sessions/attendance-sessions.module';
+import { StudentsModule } from './students/students.module';
+import { ExamsModule } from './exams/exams.module';
+import { FinanceModule } from './finance/finance.module';
+import { CommunicationModule } from './communication/communication.module';
+
 import { GlobalExceptionFilter } from './common/filters/http-execption.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -52,6 +61,21 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     TimetableModule,
     LeaveRequestModule,
     MediaModule,
+
+    // Module 4 — Employees
+    EmployeesModule,
+    // Module 5 — Courses & Teaching (Classroom, Offering, Assignments, Slots)
+    OfferingsModule,
+    // Module 6 — Attendance (sessions + records)
+    AttendanceSessionsModule,
+    // Module 7 — Students v2 (refactored model + Guardians + history)
+    StudentsModule,
+    // Module 8 — Exams, Marks, Grading Schemes
+    ExamsModule,
+    // Module 9 — Finance (Fee Structures, Invoices, Payments)
+    FinanceModule,
+    // Module 10 — Communication (Notifications, Messages, Announcements)
+    CommunicationModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
