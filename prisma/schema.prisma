@@ -1,8 +1,13 @@
 // =============================================================================
-//  Prisma schema — refactored to align with Modules 1 (Auth), 2 (Identity/RBAC)
-//  and 3 (Academic Structure). Existing downstream models (Student, Faculty as
-//  employee profile, Course, Section, Enrollment, Attendance, Grading,
-//  Timetable, LeaveRequest, Media, Guardian, Admission) are preserved.
+//  Prisma schema — UMS System
+//  Aligned with Modules 1 (Auth), 2 (Identity/RBAC), 3 (Academic Structure),
+//  4 (Employees), 5 (Courses & Teaching), 6 (Attendance), 7 (Students),
+//  8 (Exams), 9 (Finance), 10 (Communication).
+//
+//  Existing legacy models (Faculty profile, Section, Enrollment, Attendance,
+//  Grading, Timetable, LeaveRequest, Media, AdmissionRequest) are preserved
+//  alongside the new module entities so previously-shipped modules keep
+//  working without modification.
 // =============================================================================
 
 generator client {
@@ -14,7 +19,7 @@ datasource db {
 }
 
 // =============================================================================
-//  MODULE 1 — Auth & Login                                                    
+//  MODULE 1 — Auth & Login
 //  MODULE 2 — Identity & Access (RBAC)
 // =============================================================================
 
@@ -47,12 +52,19 @@ model User {
   refreshTokens RefreshToken[]
 
   // Profiles (1:1)
-  student Student?
-  faculty Faculty?
+  student  Student?
+  faculty  Faculty?
+  employee Employee?
 
   // Cross-module
   uploadedMedia Media[]
   leaveRequests LeaveRequest[]
+
+  // Module 10 — Communication
+  notifications     Notification[]
+  messagesSent      Message[]      @relation("MessageSender")
+  messagesReceived  Message[]      @relation("MessageRecipient")
+  announcements     Announcement[]
 
   @@index([email])
   @@index([status])
@@ -69,7 +81,7 @@ model RefreshToken {
   id         String    @id @default(uuid())
   userId     String    @map("user_id")
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash  String    @unique @map("token_hash") // SHA-256 hex of the raw token
+  tokenHash  String    @unique @map("token_hash")
   issuedAt   DateTime  @default(now()) @map("issued_at")
   expiresAt  DateTime  @map("expires_at")
   revokedAt  DateTime? @map("revoked_at")
@@ -84,8 +96,8 @@ model RefreshToken {
 
 model Role {
   id          String  @id @default(uuid())
-  code        String  @unique // SUPER_ADMIN, ADMIN, REGISTRAR, FACULTY, FINANCE_OFFICER, STUDENT
-  name        String  // Display name
+  code        String  @unique
+  name        String
   description String?
   isSystem    Boolean @default(false) @map("is_system")
 
@@ -100,10 +112,10 @@ model Role {
 
 model Permission {
   id          String  @id @default(uuid())
-  code        String  @unique // e.g. "academic.campus.read", "students.student.create"
-  module      String  // "Identity", "Academic", "Students", ...
-  resource    String  // "user", "role", "campus", ...
-  action      String  // "read" | "create" | "update" | "delete" | "export" | "approve"
+  code        String  @unique
+  module      String
+  resource    String
+  action      String
   description String?
 
   rolePermissions RolePermission[]
@@ -150,10 +162,7 @@ model UserScope {
 }
 
 // =============================================================================
-//  MODULE 3 — Academic Structure                                              
-//  Programmatic: Campus → AcademicFaculty → Department → Program → Batch
-//  Calendar:     AcademicSession → Semester
-//  Bridge:       Batch.programId, Batch.sessionId, Semester.sessionId
+//  MODULE 3 — Academic Structure
 // =============================================================================
 
 enum EntityStatus {
@@ -169,8 +178,8 @@ enum ProgramLevel {
 }
 
 model Campus {
-  id      String  @id @default(uuid())
-  code    String  @unique // "MC", "CC", "NC"
+  id      String       @id @default(uuid())
+  code    String       @unique
   name    String
   city    String?
   address String?
@@ -195,9 +204,14 @@ model AcademicFaculty {
   name     String
   campusId String       @map("campus_id")
   campus   Campus       @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  /// Legacy free-text dean name (Module 3 stub). Module 4 introduces deanEmployeeId FK.
   dean     String?
   email    String?
   status   EntityStatus @default(ACTIVE)
+
+  // Module 4 — FK to employee acting as dean
+  deanEmployeeId String?   @map("dean_employee_id")
+  deanEmployee   Employee? @relation("FacultyDean", fields: [deanEmployeeId], references: [id], onDelete: SetNull)
 
   departments Department[]
 
@@ -218,13 +232,22 @@ model Department {
   name              String
   academicFacultyId String          @map("academic_faculty_id")
   academicFaculty   AcademicFaculty @relation(fields: [academicFacultyId], references: [id], onDelete: Restrict)
+  /// Legacy free-text head name (Module 3 stub). Module 4 introduces headEmployeeId FK.
   head              String?
   email             String?
   status            EntityStatus    @default(ACTIVE)
 
+  // Module 4 — FK to employee acting as department head
+  headEmployeeId String?   @map("head_employee_id")
+  headEmployee   Employee? @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
+
   programs Program[]
   courses  Course[]
-  faculty  Faculty[] // employees teaching for this department
+  faculty  Faculty[]
+
+  // Module 4 — primary department + cross-listings
+  employees             Employee[]           @relation("EmployeePrimaryDept")
+  employeeDepartments   EmployeeDepartment[]
 
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -238,7 +261,7 @@ model Department {
 
 model Program {
   id            String       @id @default(uuid())
-  code          String       @unique // "BSCS", "MSCS", ...
+  code          String       @unique
   name          String
   departmentId  String       @map("department_id")
   department    Department   @relation(fields: [departmentId], references: [id], onDelete: Restrict)
@@ -253,6 +276,10 @@ model Program {
   programCourses    ProgramCourse[]
   semesterCourses   SemesterCourse[]
 
+  // Module 7 / 9
+  enrollmentHistory EnrollmentHistory[]
+  feeStructures     FeeStructure[]
+
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   createdById String?  @map("created_by_id")
@@ -266,8 +293,8 @@ model Program {
 
 model AcademicSession {
   id        String       @id @default(uuid())
-  code      String       @unique // "F-24", "SP-25"
-  name      String       // "Fall 2024"
+  code      String       @unique
+  name      String
   startDate DateTime     @map("start_date") @db.Date
   endDate   DateTime     @map("end_date") @db.Date
   status    EntityStatus @default(ACTIVE)
@@ -287,10 +314,10 @@ model AcademicSession {
 
 model Semester {
   id        String          @id @default(uuid())
-  name      String          // "Semester 1"
+  name      String
   sessionId String          @map("session_id")
   session   AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
-  sequence  Int             // 1, 2, 3, ... within the session
+  sequence  Int
   startDate DateTime        @map("start_date") @db.Date
   endDate   DateTime        @map("end_date") @db.Date
   status    EntityStatus    @default(ACTIVE)
@@ -298,6 +325,11 @@ model Semester {
   sections        Section[]
   students        Student[]
   semesterCourses SemesterCourse[]
+
+  // Module 5 / 7 / 9
+  offerings         Offering[]
+  enrollmentHistory EnrollmentHistory[]
+  invoices          Invoice[]
 
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -312,7 +344,7 @@ model Semester {
 
 model Batch {
   id        String          @id @default(uuid())
-  name      String          // "BSCS Fall 2024"
+  name      String
   programId String          @map("program_id")
   sessionId String          @map("session_id")
   program   Program         @relation(fields: [programId], references: [id], onDelete: Restrict)
@@ -324,6 +356,10 @@ model Batch {
 
   students          Student[]
   admissionRequests AdmissionRequest[]
+
+  // Module 5 / 7
+  offerings         Offering[]
+  enrollmentHistory EnrollmentHistory[]
 
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -338,7 +374,7 @@ model Batch {
 }
 
 // =============================================================================
-//  CROSS-MODULE — Curriculum joins (kept from original schema)
+//  CROSS-MODULE — Curriculum joins
 // =============================================================================
 
 model ProgramCourse {
@@ -368,7 +404,7 @@ model SemesterCourse {
 }
 
 // =============================================================================
-//  PROFILES — Student & Faculty (employee) — preserved
+//  PROFILES — Student & Faculty (legacy employee profile) — preserved
 // =============================================================================
 
 enum StudentStatus {
@@ -376,18 +412,34 @@ enum StudentStatus {
   INACTIVE
   GRADUATED
   SUSPENDED
+  PENDING
+}
+
+/// Module 7 — Student academic-state machine. Renamed to avoid clashing with the
+/// existing Enrollment.status enum (see `EnrollmentStatus` below).
+enum StudentEnrollmentStatus {
+  ACTIVE
+  GRADUATED
+  DROPPED
+  TRANSFERRED
+  ON_LEAVE
 }
 
 model Student {
-  id        String  @id @default(uuid())
-  userId    String  @unique @map("user_id")
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  programId String? @map("program_id")
-  firstName String  @map("first_name")
-  lastName  String  @map("last_name")
-  regNo     String  @unique @map("reg_no")
+  id              String  @id @default(uuid())
+  /// Optional — Module 7 supports HR-style records that don't yet have a login.
+  userId          String? @unique @map("user_id")
+  user            User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  programId       String? @map("program_id")
+  firstName       String  @map("first_name")
+  lastName        String  @map("last_name")
+  regNo           String  @unique @map("reg_no")
+  /// Module 7 — formal admission number ("STD-YYYY-NNNNN"). Optional for legacy data.
+  admissionNumber String? @unique @map("admission_number")
 
-  status StudentStatus @default(ACTIVE)
+  status           StudentStatus           @default(ACTIVE)
+  enrollmentStatus StudentEnrollmentStatus @default(ACTIVE) @map("enrollment_status")
+  enrolledAt       DateTime?               @map("enrolled_at") @db.Date
 
   profilePhoto String? @map("profile_photo")
   phone        String?
@@ -397,6 +449,7 @@ model Student {
   nationality  String?
   address      String?
   dateOfBirth  DateTime? @map("date_of_birth")
+  cnic         String?   @unique
 
   program           Program?          @relation(fields: [programId], references: [id], onDelete: SetNull)
   batchId           String?           @map("batch_id")
@@ -407,10 +460,33 @@ model Student {
   media             Media[]
   guardians         StudentGuardian[]
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  // Module 6 / 7 / 8 / 9
+  enrollmentHistory EnrollmentHistory[]
+  attendanceRecords AttendanceRecord[]
+  marks             Marks[]
+  invoices          Invoice[]
 
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@index([programId])
+  @@index([batchId])
+  @@index([currentSemesterId])
+  @@index([status])
+  @@index([enrollmentStatus])
   @@map("students")
+}
+
+enum GuardianRelation {
+  FATHER
+  MOTHER
+  GUARDIAN
+  SIBLING
+  SPOUSE
+  OTHER
 }
 
 model Guardian {
@@ -418,16 +494,22 @@ model Guardian {
 
   firstName  String  @map("first_name")
   lastName   String  @map("last_name")
-  phone      String
+  /// Optional in Module 7 spec. Existing rows already carry a value.
+  phone      String?
   email      String?
-  cnic       String  @unique
+  /// Optional + unique. Pakistani NIC-style identifier.
+  cnic       String? @unique
   occupation String?
   address    String?
+  photoUrl   String? @map("photo_url")
 
   students StudentGuardian[]
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+  deletedAt   DateTime? @map("deleted_at")
 
   @@map("guardians")
 }
@@ -435,24 +517,29 @@ model Guardian {
 model StudentGuardian {
   id String @id @default(uuid())
 
-  studentId  String @map("student_id")
-  guardianId String @map("guardian_id")
+  studentId  String  @map("student_id")
+  guardianId String  @map("guardian_id")
   relation   String?
+  isPrimary  Boolean @default(false) @map("is_primary")
 
   student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
 
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
   @@unique([studentId, guardianId])
+  @@index([guardianId])
   @@map("student_guardians")
 }
 
 model Faculty {
-  id          String   @id @default(uuid())
-  userId      String   @unique @map("user_id")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName   String   @map("first_name")
-  lastName    String   @map("last_name")
-  empId       String   @unique @map("emp_id")
+  id          String  @id @default(uuid())
+  userId      String  @unique @map("user_id")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName   String  @map("first_name")
+  lastName    String  @map("last_name")
+  empId       String  @unique @map("emp_id")
   designation String
   phone       String?
 
@@ -468,27 +555,279 @@ model Faculty {
 }
 
 // =============================================================================
-//  COURSES & SECTIONS — preserved
+//  MODULE 4 — Employees
+//  HR record for everyone who works at the institution. Optionally links to
+//  a User (login account). Module 5's CourseAssignment.teacherId references
+//  Employee.id where role = TEACHER.
 // =============================================================================
 
-model Course {
-  id           String   @id @default(uuid())
-  title        String
-  code         String   @unique
-  creditHours  Int      @map("credit_hours")
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum EmployeeRole {
+  TEACHER
+  STAFF
+  LIBRARIAN
+  FINANCE
+  IT_SUPPORT
+  OTHER
+}
+
+enum EmployeeType {
+  FACULTY
+  NON_FACULTY
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  VISITING
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+model Employee {
+  id             String    @id @default(uuid())
+  employeeNumber String    @unique @map("employee_number")
+  firstName      String    @map("first_name")
+  lastName       String    @map("last_name")
+  email          String    @unique
+  phone          String?
+  dob            DateTime? @db.Date
+  gender         Gender?
+  address        String?
+  nationality    String?
+  cnic           String?   @unique
+
+  role           EmployeeRole
+  employeeType   EmployeeType   @map("employee_type")
+  designation    String
+  employmentType EmploymentType @map("employment_type")
+  joiningDate    DateTime       @map("joining_date") @db.Date
+  status         EmployeeStatus @default(ACTIVE)
+
+  primaryDepartmentId String?     @map("primary_department_id")
+  primaryDepartment   Department? @relation("EmployeePrimaryDept", fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
+
+  photoUrl String? @map("photo_url")
+
+  userId String? @unique @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  departments EmployeeDepartment[]
+
+  // Reverse relations from Module 3 (FK promotion)
+  facultiesAsDean   AcademicFaculty[] @relation("FacultyDean")
+  departmentsAsHead Department[]      @relation("DepartmentHead")
+
+  // Module 5 — teaching
+  courseAssignments CourseAssignment[]
+  timetableSlots    TimetableSlot[]
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@index([role])
+  @@index([status])
+  @@index([primaryDepartmentId])
+  @@index([userId])
+  @@map("employees")
+}
+
+model EmployeeDepartment {
+  employeeId   String   @map("employee_id")
   departmentId String   @map("department_id")
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+
+  @@id([employeeId, departmentId])
+  @@map("employee_departments")
+}
+
+// =============================================================================
+//  MODULE 5 — Courses & Teaching
+//  Course (existing) + new Classroom / Offering / CourseAssignment / TimetableSlot
+// =============================================================================
+
+enum CourseType {
+  THEORY
+  LAB
+  SEMINAR
+  RESEARCH
+}
+
+model Course {
+  id           String     @id @default(uuid())
+  title        String
+  code         String     @unique
+  creditHours  Int        @map("credit_hours")
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  // Module 5 — additive
+  type        CourseType?
+  description String?
+  status      EntityStatus @default(ACTIVE)
 
   sections        Section[]
   media           Media[]
   programCourses  ProgramCourse[]
   semesterCourses SemesterCourse[]
 
+  offerings Offering[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([departmentId])
+  @@index([status])
   @@map("courses")
 }
+
+enum ClassroomType {
+  LECTURE
+  LAB
+  SEMINAR
+  STUDIO
+}
+
+enum ClassroomStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
+
+model Classroom {
+  id       String          @id @default(uuid())
+  code     String          @unique
+  name     String
+  capacity Int
+  building String?
+  type     ClassroomType
+  status   ClassroomStatus @default(ACTIVE)
+
+  slots TimetableSlot[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  @@index([status])
+  @@map("classrooms")
+}
+
+enum OfferingStatus {
+  OPEN
+  CLOSED
+  FULL
+}
+
+model Offering {
+  id         String         @id @default(uuid())
+  courseId   String         @map("course_id")
+  semesterId String         @map("semester_id")
+  batchId    String         @map("batch_id")
+  section    String
+  capacity   Int
+  status     OfferingStatus @default(OPEN)
+
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  batch    Batch    @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  assignments        CourseAssignment[]
+  slots              TimetableSlot[]
+  attendanceSessions AttendanceSession[]
+  exams              Exam[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  @@unique([courseId, semesterId, batchId, section])
+  @@index([courseId])
+  @@index([semesterId])
+  @@index([batchId])
+  @@index([status])
+  @@map("offerings")
+}
+
+enum AssignmentRole {
+  PRIMARY
+  CO_PRIMARY
+  TA
+}
+
+model CourseAssignment {
+  id         String         @id @default(uuid())
+  offeringId String         @map("offering_id")
+  teacherId  String         @map("teacher_id")
+  role       AssignmentRole @default(PRIMARY)
+
+  offering Offering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  teacher  Employee @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String?  @map("created_by_id")
+
+  @@unique([offeringId, teacherId])
+  @@index([offeringId])
+  @@index([teacherId])
+  @@map("course_assignments")
+}
+
+enum Day {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+}
+
+model TimetableSlot {
+  id         String @id @default(uuid())
+  offeringId String @map("offering_id")
+  teacherId  String @map("teacher_id")
+  roomId     String @map("room_id")
+  day        Day
+  startTime  String @map("start_time")
+  endTime    String @map("end_time")
+
+  offering Offering  @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  teacher  Employee  @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  room     Classroom @relation(fields: [roomId], references: [id], onDelete: Restrict)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  @@index([offeringId])
+  @@index([teacherId, day])
+  @@index([roomId, day])
+  @@map("timetable_slots")
+}
+
+// =============================================================================
+//  LEGACY Section / Enrollment / Attendance / Grading / Timetable — preserved.
+//  These power the Section / Enrollment / Attendance / Grading / Timetable
+//  modules that were live before Module 5 introduced the Offering model.
+// =============================================================================
 
 model Section {
   id         String @id @default(uuid())
@@ -512,10 +851,6 @@ model Section {
   @@unique([courseId, name, semesterId])
   @@map("sections")
 }
-
-// =============================================================================
-//  ENROLLMENT / ATTENDANCE / GRADING / TIMETABLE — preserved
-// =============================================================================
 
 enum EnrollmentStatus {
   ENROLLED
@@ -544,6 +879,7 @@ enum AttendanceStatus {
   PRESENT
   ABSENT
   LATE
+  EXCUSED
 }
 
 model Attendance {
@@ -608,6 +944,410 @@ model Timetable {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("timetables")
+}
+
+// =============================================================================
+//  MODULE 6 — Attendance (sessions + records)
+// =============================================================================
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model AttendanceSession {
+  id         String        @id @default(uuid())
+  offeringId String        @map("offering_id")
+  offering   Offering      @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  date       DateTime      @db.Date
+  startTime  String        @map("start_time")
+  endTime    String        @map("end_time")
+  topic      String?
+  notes      String?
+  status     SessionStatus @default(SCHEDULED)
+  markedAt   DateTime?     @map("marked_at")
+
+  records AttendanceRecord[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  @@unique([offeringId, date, startTime])
+  @@index([offeringId])
+  @@index([date])
+  @@index([status])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id        String           @id @default(uuid())
+  sessionId String           @map("session_id")
+  studentId String           @map("student_id")
+  session   AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student   Student           @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  status    AttendanceStatus
+  notes     String?
+  markedAt  DateTime         @default(now()) @map("marked_at")
+  markedBy  String?          @map("marked_by")
+
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+  @@index([status])
+  @@map("attendance_records")
+}
+
+// =============================================================================
+//  MODULE 7 — Enrollment History (per-semester transition log)
+// =============================================================================
+
+enum EnrollmentSemesterStatus {
+  ACTIVE
+  COMPLETED
+  INCOMPLETE
+}
+
+model EnrollmentHistory {
+  id         String                   @id @default(uuid())
+  studentId  String                   @map("student_id")
+  programId  String                   @map("program_id")
+  batchId    String                   @map("batch_id")
+  semesterId String                   @map("semester_id")
+  status     EnrollmentSemesterStatus
+  startedAt  DateTime                 @map("started_at") @db.Date
+  endedAt    DateTime?                @map("ended_at") @db.Date
+
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  program  Program  @relation(fields: [programId], references: [id], onDelete: Restrict)
+  batch    Batch    @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String?  @map("created_by_id")
+
+  @@index([studentId])
+  @@index([semesterId])
+  @@map("enrollment_history")
+}
+
+// =============================================================================
+//  MODULE 8 — Exams & Results
+// =============================================================================
+
+model ExamType {
+  id     String       @id @default(uuid())
+  name   String       @unique
+  weight Int
+  status EntityStatus @default(ACTIVE)
+
+  exams Exam[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("exam_types")
+}
+
+enum ExamStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model Exam {
+  id         String     @id @default(uuid())
+  offeringId String     @map("offering_id")
+  examTypeId String     @map("exam_type_id")
+  name       String
+  date       DateTime   @db.Date
+  totalMarks Int        @map("total_marks")
+  status     ExamStatus @default(SCHEDULED)
+  notes      String?
+
+  offering Offering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  examType ExamType @relation(fields: [examTypeId], references: [id], onDelete: Restrict)
+  marks    Marks[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  @@index([offeringId])
+  @@index([examTypeId])
+  @@index([date])
+  @@index([status])
+  @@map("exams")
+}
+
+model Marks {
+  id        String  @id @default(uuid())
+  examId    String  @map("exam_id")
+  studentId String  @map("student_id")
+  obtained  Decimal @db.Decimal(6, 2)
+  remarks   String?
+
+  exam    Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  enteredAt DateTime @default(now()) @map("entered_at")
+  enteredBy String?  @map("entered_by")
+
+  @@unique([examId, studentId])
+  @@index([examId])
+  @@index([studentId])
+  @@map("marks")
+}
+
+model GradingScheme {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  isDefault   Boolean @default(false) @map("is_default")
+
+  tiers GradingTier[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("grading_schemes")
+}
+
+model GradingTier {
+  id       String  @id @default(uuid())
+  schemeId String  @map("scheme_id")
+  letter   String
+  min      Decimal @db.Decimal(5, 2)
+  gpa      Decimal @db.Decimal(3, 2)
+
+  scheme GradingScheme @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+
+  @@unique([schemeId, letter])
+  @@unique([schemeId, min])
+  @@index([schemeId])
+  @@map("grading_tiers")
+}
+
+// =============================================================================
+//  MODULE 9 — Fees & Finance
+// =============================================================================
+
+enum FeeType {
+  TUITION
+  ADMISSION
+  LIBRARY
+  LAB
+  EXAM
+  TRANSPORT
+  HOSTEL
+  OTHER
+}
+
+model FeeStructure {
+  id              String       @id @default(uuid())
+  programId       String       @map("program_id")
+  name            String
+  description     String?
+  status          EntityStatus @default(ACTIVE)
+  appliesFromYear Int          @map("applies_from_year")
+
+  program Program   @relation(fields: [programId], references: [id], onDelete: Restrict)
+  items   FeeItem[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  @@unique([programId, appliesFromYear])
+  @@index([programId])
+  @@index([status])
+  @@map("fee_structures")
+}
+
+model FeeItem {
+  id          String  @id @default(uuid())
+  structureId String  @map("structure_id")
+  name        String
+  amount      Decimal @db.Decimal(12, 2)
+  type        FeeType
+  required    Boolean @default(true)
+  oneTime     Boolean @default(false) @map("one_time")
+
+  structure FeeStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([structureId])
+  @@map("fee_items")
+}
+
+model Invoice {
+  id            String    @id @default(uuid())
+  invoiceNumber String    @unique @map("invoice_number")
+  studentId     String    @map("student_id")
+  semesterId    String    @map("semester_id")
+  issueDate     DateTime  @map("issue_date") @db.Date
+  dueDate       DateTime  @map("due_date") @db.Date
+
+  discount Decimal @db.Decimal(12, 2) @default(0)
+  tax      Decimal @db.Decimal(12, 2) @default(0)
+  notes    String?
+
+  approvedAt    DateTime? @map("approved_at")
+  approvedById  String?   @map("approved_by_id")
+  cancelledAt   DateTime? @map("cancelled_at")
+  cancelledById String?   @map("cancelled_by_id")
+  cancelReason  String?   @map("cancel_reason")
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@index([studentId])
+  @@index([semesterId])
+  @@index([dueDate])
+  @@index([cancelledAt])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id        String  @id @default(uuid())
+  invoiceId String  @map("invoice_id")
+  name      String
+  amount    Decimal @db.Decimal(12, 2)
+  type      FeeType
+  notes     String?
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  ONLINE
+  CHEQUE
+}
+
+model Payment {
+  id           String        @id @default(uuid())
+  invoiceId    String        @map("invoice_id")
+  amount       Decimal       @db.Decimal(12, 2)
+  method       PaymentMethod
+  reference    String?
+  paidAt       DateTime      @map("paid_at") @db.Date
+  notes        String?
+  recordedById String        @map("recorded_by_id")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([invoiceId])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+// =============================================================================
+//  MODULE 10 — Communication
+// =============================================================================
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  DANGER
+}
+
+model Notification {
+  id      String           @id @default(uuid())
+  userId  String           @map("user_id")
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type    NotificationType
+  title   String
+  message String
+  link    String?
+  readAt  DateTime?        @map("read_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model Message {
+  id          String    @id @default(uuid())
+  threadId    String    @map("thread_id")
+  senderId    String    @map("sender_id")
+  recipientId String    @map("recipient_id")
+  subject     String
+  body        String
+  readAt      DateTime? @map("read_at")
+
+  sender    User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+  recipient User @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([threadId, createdAt])
+  @@index([senderId])
+  @@index([recipientId, readAt])
+  @@map("messages")
+}
+
+enum AnnouncementAudience {
+  ALL
+  STUDENTS
+  FACULTY
+  STAFF
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Announcement {
+  id          String                 @id @default(uuid())
+  title       String
+  body        String
+  audience    AnnouncementAudience[]
+  authorId    String                 @map("author_id")
+  status      AnnouncementStatus     @default(DRAFT)
+  publishedAt DateTime?              @map("published_at")
+  expiresAt   DateTime?              @map("expires_at")
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@index([status])
+  @@index([publishedAt])
+  @@map("announcements")
 }
 
 // =============================================================================
