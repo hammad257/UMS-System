@@ -68,7 +68,7 @@ async function bootstrap() {
 
    app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 }
 
 void bootstrap();
